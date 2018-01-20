@@ -1,0 +1,19 @@
+{% comment %}
+Trick comes from: https://ricostacruz.com/til/relative-paths-in-jekyll
+And *should* allow for relotive paths to be built via the following example
+    {% include base.html %}
+    <link href='{{base}}/assets/style.css' rel='stylesheet'>
+    <a href='{{base}}'>Back to Home</a>
+{% endcomment %}
+{% assign base = '' %}
+{% assign depth = page.url | split: '/' | size | minus: 1 %}
+
+{% if depth <= 1 %}{% assign base = '.' %}
+{% elsif depth == 2 %}{% assign base = '..' %}
+{% elsif depth == 3 %}{% assign base = '../..' %}
+{% elsif depth >= 4 %}
+  {% for r in (3..depth) %}
+    {% assign base = base | prepend: '../' %}
+  {% endfor %}
+    {% assign base = base | append: '..' %}
+{% endif %}

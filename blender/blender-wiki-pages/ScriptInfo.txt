@@ -1,0 +1,23 @@
+{{ScriptInfo
+|name= 3D Print Short-Cuts
+|tooltip= This addon enables comunications with 3D printing slicers & servers
+|menu= View3D > Tools > 3DPrintShortCuts
+|usage= Configure then use this the buttons found within the tabs & panels provided to take actions on selected objects
+|version= 1.0
+|blender= 2.75.0
+|category= Import-Export
+|author= S0AndS0
+|license= GNU AGPLv3
+|distribution= Extern
+|note= Please have the external dependencies installed & accessable by the same user as is running Blender
+|exe= 3dprint_shortcuts.py
+|download= https://s0ands0.github.io/3DPrinting/blender/addons/3dprint_shortcuts.py
+|modules= bpy, os, sys, subprocess
+|deps= Local; Slic3r, CuraEngine, Curl. Remote (optional); OctoPrint or Repetier server
+|data= Slic3r '.ini' config. file or CuraEngine '.json' config. file tailored for your 3D printer
+|bugtracker= https://github.com/S0AndS0/3DPrinting/issues
+|warning= Use the correct configuration file for the slicer of choice to generate the correct GCode for your printer
+|link= https://s0ands0.github.io/3DPrinting/blender/addons/2017/12/28/blender-3dprint-short-cuts.html
+|releaselog= Release log page, possibly in this wiki
+|issues= Does not "press print" for the user.
+}}

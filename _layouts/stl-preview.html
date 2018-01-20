@@ -1,0 +1,36 @@
+---
+layout: default
+---
+{% include base.html %}
+<head>
+  <link rel="stilesheet" type="text/css" media="screen" href="{{ base }}/src/css/Madeleine.css">
+  <script src="{{ base }}/src/lib/stats.js"></script>
+  <script src="{{ base }}/src/lib/detector.js"></script>
+  <script src="{{ base }}/src/lib/three.min.js"></script>
+  <script src="{{ base }}/src/Madeleine.js"></script>
+</head>
+
+<article class="post">
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">{{ page.title | escape }}</h1>
+    </header>
+  <div class="post-content" itemprop="articleBody">
+    <blockquote>
+      <p>{{ page.headline | default: site.description }}</p>
+    </blockquote>
+    <div id="target" class="madeleine"></div>
+    <script>
+      window.onload = function(){
+        var madeleine = new Madeleine({
+          target: 'target', // target div id
+          data: '{{ base }}/{{ page.stl-path }}', // data path
+          path: '{{ base }}/src' // path to source directory from current html file
+        });
+      };
+    </script>
+  </div>
+  <p><b>Download:</b><a href="{{ base }}/{{ page.stl-path }}">{{ page.stl-name }}</a></p>
+  {% if page.content %}
+    {{ page.content }}
+  {% endif %}
+</article>

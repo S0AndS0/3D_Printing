@@ -1,0 +1,6 @@
+_site
+.sass-cache
+.jekyll-metadata
+## Above are for Jekyll bellow are for Gem
+.bundle
+Gemfile.lock

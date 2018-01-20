@@ -1,0 +1,29 @@
+{% comment %}
+  # Include with a list via
+  {% include sorted_list.html list="comma, sepperated, list" %}
+  {{ sorted-list }}
+{% endcomment %}
+
+{% assign list = include.list | split: ", " | sort | default: nil %}
+{% if list %}
+  {% for item in list %}
+    {% unless forloop.last %}
+      {% if loop_list %}
+        {% assign loop_list = loop_list | append: ", " | append: item %}
+      {% else %}
+        {% assign loop_list = item %}
+      {% endif %}
+    {% else %}
+      {% if loop_list %}
+        {% assign loop_list = loop_list | append: ", " | append: "and " | append: item %}
+      {% else %}
+        {% assign loop_list = item %}
+      {% endif %}
+    {% endunless %}
+  {% endfor %}
+  {% if loop_list %}
+    {% assign sorted-list = loop_list %}
+    {% assign loop_list = nil %}
+  {% endif %}
+  {% assign list = nil %}
+{% endif %}
