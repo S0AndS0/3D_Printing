@@ -22,6 +22,12 @@ This add-on allows for turning a selection of object within Blender into either
  or Repetier server.
 
 
+## How To Playlist
+
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/videoseries?list=PLNK2xp3jRnJWgBBLHAg5iP8AUJfZp_jbv" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+
+
 ## Installation
 
 
@@ -127,12 +133,12 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
  should be sent to either Slic3r or CuraEngine for translating into GCode files, and
  toggles visibility of the following two buttons
 
--- The `Slic3r Slice Selected` button will export selected Blender objects to
+- The `Slic3r Slice Selected` button will export selected Blender objects to
  Slic3r for translating into GCode file(s). Note users should provide a config
  (`.ini`) file path to Blender under the `Slic3r Settings` panel if not using
  the original RepRap 3D printer.
 
--- The `CuraEngine Slice Selected` button will export selected Blender objects
+- The `CuraEngine Slice Selected` button will export selected Blender objects
  to CuraEngine for translating into GCode file(s) and much like with Slic3r
  users should load in their config (`.json`) file within the related Settings
  panel.
@@ -185,6 +191,10 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 
 
 ## Other Blender addons that maybe of interest to users of this addon
+
+> Note the following are only what could be found via web searching for 3rd
+> party Blender addons related to 3D printing & GCode, and have not been tested
+> by the authors of the above documented addon.
 
 
 - [Blender GCode Reader](https://github.com/zignig/blender-gcode-reader)
