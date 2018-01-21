@@ -57,18 +57,10 @@ from bpy.props import (
 # Furthermore, prior to public pushes to any Git server check that code formatting is
 #  compliant with PEP 8 https://www.python.org/dev/peps/pep-0008/
 
-## Uncomment the following line...
-# __import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
-##... then paste the following line anywhere you wish to pop a shell during execution for inspection
-#  code.interact
-
 #-------------------------------------------------------------------------
 #    Global variables for this add-on
 #-------------------------------------------------------------------------
 this_addons_name = bpy.path.display_name_from_filepath(__file__)
-#this_addons_name = str((bl_info.name))
-#this_addons_author = bl_info.author
-#this_addons_wiki_url = bl_info.wiki_url
 
 Target_render_engine = 'BLENDER_GAME'
 Target_material_mode = 'GLSL'
@@ -581,6 +573,24 @@ class misc_settings(PropertyGroup):
         default='OctoPrint',
         description='3D Printer server to conntect to. Default: OctoPrint',
     )
+    Scene.button_text_color = bpy.props.FloatVectorProperty(
+        name='Button Text Color Picker',
+        subtype='COLOR',
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=(0.1, 0.75, 0.75, 1.0),
+        description='',
+    )
+    Scene.button_background_color = bpy.props.FloatVectorProperty(
+        name='Button Background Color Picker',
+        subtype='COLOR',
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=(0.0, 0.0, 0.0, 1.0),
+        description='',
+    )
 
 
 #-------------------------------------------------------------------------
@@ -1028,6 +1038,8 @@ class preview_webcam_config_panel(Panel):
             layout.prop(scene, 'repetier_preview_placement', text='Preview Placement')
             layout.prop(scene, 'repetier_preview_layer', text='Layer to Place Preview')
             layout.prop(scene, 'repetier_preview_xy_scale', text='XY Scale')
+        layout.prop(scene, 'button_background_color', text='Button Background Color')
+        layout.prop(scene, 'button_text_color', text='Button Text Color')
 
 
 #-------------------------------------------------------------------------
@@ -1330,7 +1342,9 @@ class octoprint_stream_webcam_button(Operator):
             target_3dview = Scene.octoprint_target_3dview,
             curl_exec_dir = Scene.curl_exec_dir,
             curl_exec_name = Scene.curl_exec_name,
-            log_level = Scene.log_level)
+            log_level = Scene.log_level,
+            button_background_color = Scene.button_background_color,
+            button_text_color = Scene.button_text_color)
 
         info = ('Finished')
         self.report({'INFO'}, info)
@@ -1392,7 +1406,9 @@ class repetier_stream_webcam_button(Operator):
             target_3dview = Scene.repetier_target_3dview,
             curl_exec_dir = Scene.curl_exec_dir,
             curl_exec_name = Scene.curl_exec_name,
-            log_level = Scene.log_level)
+            log_level = Scene.log_level,
+            button_background_color = Scene.button_background_color,
+            button_text_color = Scene.button_text_color)
 
         info = ('Finished')
         self.report({'INFO'}, info)
@@ -1598,7 +1614,7 @@ def blender_import_gcode_text(filepath=''):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def blender_import_local_image(filename='', directory=''):
+def blender_webcam_import_local_image(filename='', directory=''):
     """
     # This will be simplified as "img_file_path='/some/path.some.jpg'"
     # For now know the order of operations if a preview image are nesisary
@@ -1616,7 +1632,35 @@ def blender_import_local_image(filename='', directory=''):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def blender_add_view_plane(
+def blender_materialize_object(material_name='', object_name='', diffuse_color=None, use_shadeless=True):
+    obj = bpy.data.objects.get(object_name)
+
+    # Setup new material if none exists for button text
+    mat = bpy.data.materials.get(material_name)
+    if mat is None:
+        mat = bpy.data.materials.new(name=material_name)
+
+    if diffuse_color is not None:
+        # Note by addressing the first three this avoides errors with feeding longer lists
+        #  while this will mean that collors between BGE & Textured Object mode
+        #  it also means that there will be buttons with visable & customizable colors
+        mat.diffuse_color = (diffuse_color[0], diffuse_color[1], diffuse_color[2])
+
+    # Assign or update material on button plane
+    obj_mat = obj.data.materials.get(material_name)
+    if obj_mat is None:
+        obj.data.materials.append(mat)
+        obj_mat = obj.data.materials.get(material_name)
+    else:
+        obj.data.materials[0] = mat
+
+    obj.active_material.use_shadeless = use_shadeless
+
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def blender_webcam_add_view_plane(
         image_name='',
         video_object_name='',
         video_material_name='',
@@ -1658,18 +1702,9 @@ def blender_add_view_plane(
     elif 'WEST' in preview_placement:
         obj.location[0] = -obj.dimensions[0]/2
 
-    # Setup new material if none exists
+    blender_materialize_object(material_name=video_material_name, object_name=video_object_name, diffuse_color=[0, 0, 0], use_shadeless=True)
     mat = bpy.data.materials.get(video_material_name)
-    if mat is None:
-        mat = bpy.data.materials.new(name=video_material_name)
-
-    # Assign or update material to or on object
     obj_mat = obj.data.materials.get(video_material_name)
-    if obj_mat is None:
-        obj.data.materials.append(mat)
-        obj_mat = obj.data.materials.get(video_material_name)
-    else:
-        obj.data.materials[0] = mat
 
     tex = bpy.data.textures.get(video_texture_name)
     if tex is None:
@@ -1684,7 +1719,7 @@ def blender_add_view_plane(
     tex.image = bpy.data.images[image_name]
     obj.data.materials[video_material_name].texture_slots[video_texture_name].texture_coords = 'ORCO'
 
-    obj.active_material.use_shadeless = True
+#    obj.active_material.use_shadeless = True
     ## Following is to update object if this is not the first time the preview/stream button has been pressed
     bpy.data.objects[video_object_name].data.update()
     ## Following is to update the scene to all the changes required to view an image on a plane within Blender
@@ -1694,7 +1729,7 @@ def blender_add_view_plane(
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def blender_video_setup_script_text_block(
+def blender_webcam_setup_script_text_block(
         controller_script_name='',
         default_image='',
         video_path=''):
@@ -1718,6 +1753,7 @@ def blender_video_setup_script_text_block(
     text_block.write('obj = cont.owner\n')
     text_block.write('def main():\n')
     text_block.write('    if not hasattr(bge.logic, "video"):\n')
+    text_block.write('        bge.render.showMouse(True)\n')
     text_block.write('        ID = bge.texture.materialID(obj, "IM{0}")\n'.format(default_image))
     text_block.write('        bge.logic.video = bge.texture.Texture(obj, ID)\n')
 #    if camera_addr:
@@ -1729,7 +1765,10 @@ def blender_video_setup_script_text_block(
     text_block.write('main()')
 
 
-def blender_setup_game_logic(
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def blender_webcam_setup_game_logic(
         video_object_name='',
         sensor_name='',
         controller_name='',
@@ -1751,6 +1790,128 @@ def blender_setup_game_logic(
 
     # Link things together
     vid_obj_sensor.link(vid_obj_controller)
+
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def blender_button_setup_game_logic(
+        object_name='',
+        actuator_type='GAME',
+        actuator_mode='QUIT'):
+
+    sensor_click_name = object_name + '_Sensor_Click'
+    sensor_mouseover_name = object_name + '_Sensor_Mouse_Over'
+    controller_name = object_name + '_Controller'
+    actuator_name = object_name + '_Actuator'
+
+    # Make two sensors for mouse events
+    click_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_click_name)
+    if click_sensor is None:
+        bpy.ops.logic.sensor_add(type='MOUSE', name = sensor_click_name, object = object_name)
+        click_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_click_name)
+
+    click_sensor.mouse_event = 'LEFTCLICK'
+
+    mouseover_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_mouseover_name)
+    if mouseover_sensor is None:
+        bpy.ops.logic.sensor_add(type='MOUSE', name = sensor_mouseover_name, object = object_name)
+        mouseover_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_mouseover_name)
+
+    mouseover_sensor.mouse_event = 'MOUSEOVER'
+
+    # Make an AND controller
+    controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
+    if controller is None:
+        bpy.ops.logic.controller_add(type='LOGIC_AND', name = controller_name, object = object_name)
+        controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
+
+    # Link the sensors to controller
+    click_sensor.link(controller)
+    mouseover_sensor.link(controller)
+
+    # Make an actuator
+    actuator = bpy.data.objects[object_name].game.actuators.get(actuator_name)
+    if actuator is None:
+        bpy.ops.logic.actuator_add(type = actuator_type, name = actuator_name, object = object_name)
+        actuator = bpy.data.objects[object_name].game.actuators.get(actuator_name)
+
+    actuator.mode = actuator_mode
+
+    # Link controller to actuator
+    actuator.link(controller)
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def blender_webcam_add_button_text(
+        text_name='',
+        text_body='',
+        preview_layer='',
+        location='',
+        button_background_color='',
+        button_text_color=''):
+
+    plane_name = text_name + '_Plane'
+    plane_material_name = text_name + '_Plane_Material'
+    text_material_name = text_name + '_Text_Material'
+
+    # Deselect all meshes
+    bpy.ops.object.select_all(action='DESELECT')
+    text_obj = bpy.data.objects.get(text_name)
+    if text_obj is None:
+        layers = []
+        for count in range(0, 20):
+            if count != preview_layer:
+                layers += [False]
+            else:
+                layers += [True]
+        bpy.ops.object.text_add(layers=layers)
+        bpy.data.objects[-1].name = text_name
+        text_obj = bpy.data.objects.get(text_name)
+
+    text_obj.data.body = text_body
+    # Set origin to geometry
+    bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN', center='MEDIAN')
+    text_obj.location = (text_obj.location[0], text_obj.location[1], location[2])
+    text_dimensions = text_obj.dimensions
+
+    # Deselect all meshes
+    bpy.ops.object.select_all(action='DESELECT')
+    # Add plane under & size it
+    plane_obj = bpy.data.objects.get(plane_name)
+    if plane_obj is None:
+        layers = []
+        for count in range(0, 20):
+            if count != preview_layer:
+                layers += [False]
+            else:
+                layers += [True]
+        bpy.ops.mesh.primitive_plane_add(layers=layers)
+        bpy.context.object.name = plane_name
+        plane_obj = bpy.data.objects.get(plane_name)
+
+    # Lower left
+    plane_obj.data.vertices[0].co = (-text_dimensions[0]/2, -text_dimensions[1]/2, text_obj.location[2])
+    # Lower right
+    plane_obj.data.vertices[1].co = (text_dimensions[0]/2, -text_dimensions[1]/2, text_obj.location[2])
+    # Upper left
+    plane_obj.data.vertices[2].co = (-text_dimensions[0]/2, text_dimensions[1]/2, text_obj.location[2])
+    # Upper right
+    plane_obj.data.vertices[3].co = (text_dimensions[0]/2, text_dimensions[1]/2, text_obj.location[2])
+
+    # Parent text to plane
+    text_obj.parent = plane_obj
+    plane_obj.location = (location[0], location[1], location[2]/2)
+    text_obj.location = (text_obj.location[0], text_obj.location[1], text_obj.location[2]+0.5)
+
+    # Colorize text & background for while in BGE
+    text_obj.color = button_text_color
+    plane_obj.color = button_background_color
+
+    # Assign material to text & background plane for while in textured object mode
+    blender_materialize_object(material_name=text_material_name, object_name=text_name, diffuse_color = button_text_color, use_shadeless=True)
+    blender_materialize_object(material_name=plane_material_name, object_name=plane_name, diffuse_color = button_background_color, use_shadeless=True)
 
 
 #-------------------------------------------------------------------------
@@ -3224,7 +3385,9 @@ def preview_webcam_operations(
         target_3dview='',
         curl_exec_dir='',
         curl_exec_name='',
-        log_level=''):
+        log_level='',
+        button_background_color='',
+        button_text_color=''):
 
     # Deselect all meshes, perhaps that will keep new textures off pre-exsisting meshes
     bpy.ops.object.select_all(action='DESELECT')
@@ -3257,7 +3420,7 @@ def preview_webcam_operations(
         log_level = log_level)
 
     # Pull in the downloaded picture into current Blender file/scene
-    blender_import_local_image(filename = image_file_name, directory = snapshot_dir)
+    blender_webcam_import_local_image(filename = image_file_name, directory = snapshot_dir)
 
     image_X_size = bpy.data.images[image_file_name].size[0]
     image_Y_size = bpy.data.images[image_file_name].size[1]
@@ -3269,7 +3432,7 @@ def preview_webcam_operations(
 
     # Add & scale a Plane object, then add the picture from OctoPrint
     #  server as a texture
-    blender_add_view_plane(
+    blender_webcam_add_view_plane(
         image_name = image_file_name,
         video_object_name = image_plane_name,
         video_material_name = bge_material_name,
@@ -3279,11 +3442,12 @@ def preview_webcam_operations(
         xy_scale = preview_xy_scale,
         preview_placement = preview_placement,
         preview_layer = preview_layer)
+    webcam_obj = bpy.data.objects.get(image_plane_name)
 
     # Write a customized Blender Game Engine script for updating the
     #  texture of the Plane with a video source, in this case the
     #  address of the OctoPrint server.
-    blender_video_setup_script_text_block(
+    blender_webcam_setup_script_text_block(
         controller_script_name = bge_controller_script_name,
         default_image = image_file_name,
         video_path = stream_url)
@@ -3291,7 +3455,7 @@ def preview_webcam_operations(
     # Link together objects, scripts, and Blender Game Engine blocks
     #  such that the user need only use the default keyboard short-cut
     #  'P' within a 3D window to play a live stream from the server.
-    blender_setup_game_logic(
+    blender_webcam_setup_game_logic(
         video_object_name = image_plane_name,
         sensor_name = bge_sensor_name,
         controller_name = bge_controller_name,
@@ -3304,6 +3468,21 @@ def preview_webcam_operations(
             target_screen = target_screen,
             target_3dview = target_3dview)
     elif action == 'stream':
+        # Add exit button in upper left corner of preview plane
+        text_location = (-webcam_obj.dimensions[0]/2, webcam_obj.dimensions[1]/2, webcam_obj.dimensions[2]+1)
+        blender_webcam_add_button_text(
+            text_name='Exit_Button',
+            text_body='[ESC]',
+            button_background_color = button_background_color,
+            button_text_color = button_text_color,
+            preview_layer = preview_layer,
+            location = text_location)
+        # Note we are assuming that naming of background plane will not change from previous function call
+        blender_button_setup_game_logic(
+            object_name='Exit_Button_Plane',
+            actuator_type='GAME',
+            actuator_mode='QUIT')
+
         blender_3dview_modify_viewport(
             animate = True,
             preview_layer = preview_layer,
@@ -3376,6 +3555,10 @@ if __name__ == '__main__':
 # https://stackoverflow.com/questions/5618878/how-to-convert-list-to-string
 # https://blender.stackexchange.com/questions/45528/how-to-get-blenders-version-number-from-python
 # https://docs.blender.org/api/blender_python_api_2_61_0/info_tips_and_tricks.html
+# https://blenderartists.org/forum/showthread.php?254880-Show-mouse-script
+# https://stackoverflow.com/questions/17388912/blender-script-how-to-write-to-text-object
+# https://blender.stackexchange.com/questions/9200/make-object-a-a-parent-of-object-b-via-python
+# https://blender.stackexchange.com/questions/94998/start-and-exit-buttons-are-not-working-properly-in-blender-game
 
 # TO-DO - Add progress bar support?
 #https://github.com/meta-androcto/blenderpython/blob/master/scripts/addons_extern/io_scene_obj1/export_obj.py
