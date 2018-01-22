@@ -1451,8 +1451,8 @@ class octoprint_download_file_list_button(Operator):
             raise Exception('Please select some objects first.')
 
         Scene = context.scene
-        
-        curl_download_octoprint_file_list(
+
+        parsed_json = octoprint_return_json_file_listing(
             octoprint_host=Scene.octoprint_host,
             octoprint_x_api_key=Scene.octoprint_x_api_key,
             octoprint_port=Scene.octoprint_port,
@@ -1462,6 +1462,46 @@ class octoprint_download_file_list_button(Operator):
             curl_exec_name = Scene.curl_exec_name,
             log_level = Scene.log_level,
             tmp_dir = Scene.octoprint_snapshot_dir)
+
+        for dir in parsed_json['files']:
+            for file in dir['children']:
+                print('#########')
+    #            print('# File:', file)
+    #            print('## Refs:', file['refs'])
+                print('## Refs Resource:', file['refs']['resource'])
+                if file['type'] != 'folder':
+                    print('## Refs Download:', file['refs']['download'])
+
+                print('## Mount:', file['origin'])
+                print('## Type:', file['type'])
+                print('## Size:', file['size'])
+                print('## Name:', file['name'])
+                if file['type'] == 'machinecode':
+    #                print('### GCode Analysis:', file['gcodeAnalysis'])
+                    print('### GCode Analysis Filament:', file['gcodeAnalysis']['filament'])
+                    for count, tool in enumerate(file['gcodeAnalysis']['filament']):
+                        print('#### Tool #{0}'.format(count))
+                        print('#### Length:', file['gcodeAnalysis']['filament'][tool]['length'])
+                        print('#### Volume:', file['gcodeAnalysis']['filament'][tool]['volume'])
+
+                    print('#### Dimensions Depth:', file['gcodeAnalysis']['dimensions']['depth'])
+                    print('#### Dimensions Height:', file['gcodeAnalysis']['dimensions']['height'])
+                    print('#### Dimensions Width:', file['gcodeAnalysis']['dimensions']['width'])
+                    print('#### Printing Area Max Y:', file['gcodeAnalysis']['printingArea']['maxY'])
+                    print('#### Printing Area Min Y:', file['gcodeAnalysis']['printingArea']['minY'])
+                    print('#### Printing Area Max X:', file['gcodeAnalysis']['printingArea']['maxX'])
+                    print('#### Printing Area Min X:', file['gcodeAnalysis']['printingArea']['minX'])
+                    print('#### Printing Area Max Z:', file['gcodeAnalysis']['printingArea']['maxZ'])
+                    print('#### Printing Area Min Z:', file['gcodeAnalysis']['printingArea']['minZ'])
+                    print('#### Estimated Print Time:', file['gcodeAnalysis']['estimatedPrintTime'])
+                elif file['type'] == 'model':
+                    print('## Hash:', file['hash'])
+                    print('## Date:', file['date'])
+
+                print('## Display', file['display'])
+                print('## Path:', file['path'])
+                print('## Type Path:', file['typePath'])
+
 
         info = ('Finished')
         self.report({'INFO'}, info)
@@ -2106,7 +2146,7 @@ def curl_download_snapshot(
         log_ops = curl_log)
 
 
-def curl_download_octoprint_file_list(
+def octoprint_return_json_file_listing(
         octoprint_host='',
         octoprint_x_api_key='',
         octoprint_port='',
@@ -2149,47 +2189,9 @@ def curl_download_octoprint_file_list(
     if os.path.exists(json_file_path):
         with open(json_file_path) as json_file:
             parsed_json = json.load(json_file)
+        return parsed_json
     else:
         raise Exception('Could not find json file: {0}'.format(json_file_path))
-
-    for dir in parsed_json['files']:
-        for file in dir['children']:
-            print('#########')
-#            print('# File:', file)
-#            print('## Refs:', file['refs'])
-            print('## Refs Resource:', file['refs']['resource'])
-            if file['type'] != 'folder':
-                print('## Refs Download:', file['refs']['download'])
-
-            print('## Mount:', file['origin'])
-            print('## Type:', file['type'])
-            print('## Size:', file['size'])
-            print('## Name:', file['name'])
-            if file['type'] == 'machinecode':
-#                print('### GCode Analysis:', file['gcodeAnalysis'])
-                print('### GCode Analysis Filament:', file['gcodeAnalysis']['filament'])
-                for count, tool in enumerate(file['gcodeAnalysis']['filament']):
-                    print('#### Tool #{0}'.format(count))
-                    print('#### Length:', file['gcodeAnalysis']['filament'][tool]['length'])
-                    print('#### Volume:', file['gcodeAnalysis']['filament'][tool]['volume'])
-
-                print('#### Dimensions Depth:', file['gcodeAnalysis']['dimensions']['depth'])
-                print('#### Dimensions Height:', file['gcodeAnalysis']['dimensions']['height'])
-                print('#### Dimensions Width:', file['gcodeAnalysis']['dimensions']['width'])
-                print('#### Printing Area Max Y:', file['gcodeAnalysis']['printingArea']['maxY'])
-                print('#### Printing Area Min Y:', file['gcodeAnalysis']['printingArea']['minY'])
-                print('#### Printing Area Max X:', file['gcodeAnalysis']['printingArea']['maxX'])
-                print('#### Printing Area Min X:', file['gcodeAnalysis']['printingArea']['minX'])
-                print('#### Printing Area Max Z:', file['gcodeAnalysis']['printingArea']['maxZ'])
-                print('#### Printing Area Min Z:', file['gcodeAnalysis']['printingArea']['minZ'])
-                print('#### Estimated Print Time:', file['gcodeAnalysis']['estimatedPrintTime'])
-            elif file['type'] == 'model':
-                print('## Hash:', file['hash'])
-                print('## Date:', file['date'])
-
-            print('## Display', file['display'])
-            print('## Path:', file['path'])
-            print('## Type Path:', file['typePath'])
 
 
 #-------------------------------------------------------------------------
