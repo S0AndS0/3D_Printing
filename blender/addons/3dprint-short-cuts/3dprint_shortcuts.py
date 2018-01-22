@@ -39,6 +39,7 @@ import bpy
 import os
 import sys
 import subprocess
+import json
 
 from bpy.types import (
     Operator,
@@ -794,6 +795,7 @@ class print_server_buttons_panel(Panel):
             layout.prop(scene, 'octoprint_save_stl_dir', text='STL Directory')
             layout.operator('object.octoprint_upload_stl_button', text='Upload Selected as STL')
             layout.prop(scene, 'octoprint_slice_uploaded_stl', text='Slice Uploaded STL(s)')
+            layout.operator('object.octoprint_download_file_list', text='Parse OctoPrint File list')
         if 'Repetier' in scene.prefered_print_server:
             layout.operator('object.repetier_preview_webcam_button', text='Preview Build Plate')
             layout.operator('object.repetier_stream_webcam_button', text='Stream Build Plate')
@@ -1435,6 +1437,37 @@ class curl_test_button(Operator):
         self.report({'INFO'}, info)
         return {'FINISHED'}
 
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+class octoprint_download_file_list_button(Operator):
+    """Download a list of files from OctoPrint server"""
+    bl_idname = 'object.octoprint_download_file_list'
+    bl_label = 'OctoPrint Download File List'
+
+    def execute(self, context):
+        if not context.selected_objects:
+            raise Exception('Please select some objects first.')
+
+        Scene = context.scene
+        
+        curl_download_octoprint_file_list(
+            octoprint_host=Scene.octoprint_host,
+            octoprint_x_api_key=Scene.octoprint_x_api_key,
+            octoprint_port=Scene.octoprint_port,
+            octoprint_user=Scene.octoprint_user,
+            octoprint_pass=Scene.octoprint_pass,
+            curl_exec_dir = Scene.curl_exec_dir,
+            curl_exec_name = Scene.curl_exec_name,
+            log_level = Scene.log_level,
+            tmp_dir = Scene.octoprint_snapshot_dir)
+
+        info = ('Finished')
+        self.report({'INFO'}, info)
+        return {'FINISHED'}
+
+
 #-------------------------------------------------------------------------
 #    Register & un-register configs, note order determines initial layout of panels
 #-------------------------------------------------------------------------
@@ -1460,6 +1493,7 @@ classes = (
     octoprint_stream_webcam_button,
     repetier_stream_webcam_button,
     repetier_preview_webcam_button,
+    octoprint_download_file_list_button,
 
     quick_slicer_tools_buttons_panel,
     print_server_buttons_panel,
@@ -2071,6 +2105,91 @@ def curl_download_snapshot(
         ops = curl_ops,
         log_ops = curl_log)
 
+
+def curl_download_octoprint_file_list(
+        octoprint_host='',
+        octoprint_x_api_key='',
+        octoprint_port='',
+        octoprint_user='',
+        octoprint_pass='',
+        curl_exec_dir='',
+        curl_exec_name='',
+        log_level='',
+        tmp_dir=''):
+
+    json_file_path = os.path.join(tmp_dir, 'file_list.json')
+
+    if octoprint_port:
+        host_url = octoprint_host + ':' + octoprint_port
+
+    curl_ops = ['-k', '--connect-timeout', '15']
+    curl_log = []
+    if log_level != 'QUITE':
+        curl_log.extend(curl_ops)
+
+    if octoprint_x_api_key:
+        curl_ops += ['-H', 'X-Api-Key: {0}'.format(octoprint_x_api_key)]
+        if log_level == 'VERBOSE':
+            curl_log += ['-H', 'X-Api-Key: {0}'.format(octoprint_x_api_key)]
+        elif log_level == 'SCRUBBED':
+            curl_log += ['-H', 'X-Api-Key: X-API-KEY']
+
+    if octoprint_user and octoprint_pass:
+        curl_ops += ['-u', '{0}:{1}'.format(octoprint_user, octoprint_pass)]
+        if log_level == 'VERBOSE':
+            curl_log += ['-u', '{0}:{1}'.format(octoprint_user, octoprint_pass)]
+        elif log_level == 'SCRUBBED':
+            curl_log += ['-u', 'USER:PASS']
+
+    curl_ops += ['{0}/api/files?recursive=true'.format(host_url), '-o', json_file_path]
+    if log_level != 'QUITE':
+        curl_log += ['{0}/api/files?recursive=true'.format(host_url), '-o', json_file_path]
+
+    curl(exec_dir = curl_exec_dir, exec_name = curl_exec_name, ops = curl_ops, log_ops = curl_log)
+    if os.path.exists(json_file_path):
+        with open(json_file_path) as json_file:
+            parsed_json = json.load(json_file)
+    else:
+        raise Exception('Could not find json file: {0}'.format(json_file_path))
+
+    for dir in parsed_json['files']:
+        for file in dir['children']:
+            print('#########')
+#            print('# File:', file)
+#            print('## Refs:', file['refs'])
+            print('## Refs Resource:', file['refs']['resource'])
+            if file['type'] != 'folder':
+                print('## Refs Download:', file['refs']['download'])
+
+            print('## Mount:', file['origin'])
+            print('## Type:', file['type'])
+            print('## Size:', file['size'])
+            print('## Name:', file['name'])
+            if file['type'] == 'machinecode':
+#                print('### GCode Analysis:', file['gcodeAnalysis'])
+                print('### GCode Analysis Filament:', file['gcodeAnalysis']['filament'])
+                for count, tool in enumerate(file['gcodeAnalysis']['filament']):
+                    print('#### Tool #{0}'.format(count))
+                    print('#### Length:', file['gcodeAnalysis']['filament'][tool]['length'])
+                    print('#### Volume:', file['gcodeAnalysis']['filament'][tool]['volume'])
+
+                print('#### Dimensions Depth:', file['gcodeAnalysis']['dimensions']['depth'])
+                print('#### Dimensions Height:', file['gcodeAnalysis']['dimensions']['height'])
+                print('#### Dimensions Width:', file['gcodeAnalysis']['dimensions']['width'])
+                print('#### Printing Area Max Y:', file['gcodeAnalysis']['printingArea']['maxY'])
+                print('#### Printing Area Min Y:', file['gcodeAnalysis']['printingArea']['minY'])
+                print('#### Printing Area Max X:', file['gcodeAnalysis']['printingArea']['maxX'])
+                print('#### Printing Area Min X:', file['gcodeAnalysis']['printingArea']['minX'])
+                print('#### Printing Area Max Z:', file['gcodeAnalysis']['printingArea']['maxZ'])
+                print('#### Printing Area Min Z:', file['gcodeAnalysis']['printingArea']['minZ'])
+                print('#### Estimated Print Time:', file['gcodeAnalysis']['estimatedPrintTime'])
+            elif file['type'] == 'model':
+                print('## Hash:', file['hash'])
+                print('## Date:', file['date'])
+
+            print('## Display', file['display'])
+            print('## Path:', file['path'])
+            print('## Type Path:', file['typePath'])
 
 
 #-------------------------------------------------------------------------
