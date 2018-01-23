@@ -811,20 +811,20 @@ class print_server_buttons_panel(Panel):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-class curl_test_panel(Panel):
+class debug_panel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_context = 'objectmode'
     bl_category = this_addons_category
-    bl_label = 'Curl Test Command'
-    bl_idname = 'object.curl_test_panel'
+    bl_label = 'Debuging Actions'
+    bl_idname = 'object.debug_panel'
 
     def draw(self, context):
         scene = context.scene
         layout = self.layout
 
-        layout.prop(scene, 'curl_test_ops', text='Arguments to send curl, comma separated please')
-        layout.operator('object.curl_test_button', text='Run Curl')
+        layout.prop(scene, 'curl_test_ops', text='Curl argument string')
+        layout.operator('object.curl_test_button', text='Test Curl')
 
 
 #-------------------------------------------------------------------------
@@ -853,7 +853,7 @@ class print_server_slicer_config_panel(Panel):
             layout.prop(scene, 'octoprint_slice_position_x', text='Slicer X Position')
             layout.prop(scene, 'octoprint_slice_position_y', text='Slicer Y Position')
         if 'Repetier' in scene.prefered_print_server:
-            col.label(text="One day maybe")
+            layout.label(text="One day maybe")
 
 
 #-------------------------------------------------------------------------
@@ -944,25 +944,6 @@ class slicer_config_panel(Panel):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-class curl_config_panel(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_context = 'objectmode'
-    bl_category = this_addons_category
-    bl_label = 'Curl Settings'
-    bl_idname = 'object.curl_config_panel'
-
-    def draw(self, context):
-        scene = context.scene
-        layout = self.layout
-
-        layout.prop(scene, 'curl_exec_dir', text='Directory of Executable')
-        layout.prop(scene, 'curl_exec_name', text='Name of Executable')
-
-
-#-------------------------------------------------------------------------
-#   
-#-------------------------------------------------------------------------
 class print_server_connection_config_panel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
@@ -999,6 +980,10 @@ class print_server_connection_config_panel(Panel):
             layout.prop(scene, 'repetier_save_gcode_dir', text='GCode Directory')
 #            layout.prop(scene, 'repetier_save_stl_dir', text='STL Directory')
             layout.prop(scene, 'repetier_x_api_key', text='X-API Key')
+
+        layout.label(text="Curl executable configurations")
+        layout.prop(scene, 'curl_exec_dir', text='Directory of Executable')
+        layout.prop(scene, 'curl_exec_name', text='Name of Executable')
 
 
 #-------------------------------------------------------------------------
@@ -1421,7 +1406,8 @@ class repetier_stream_webcam_button(Operator):
 #    Actions to take when "Upload Selected as STL" button is pressed
 #-------------------------------------------------------------------------
 class curl_test_button(Operator):
-    """Test a curl command from within Blender"""
+    """Test a curl command from within Blender
+    using subprocess.getoutput"""
     bl_idname = 'object.curl_test_button'
     bl_label = 'Curl test command'
 
@@ -1430,11 +1416,8 @@ class curl_test_button(Operator):
 
         if Scene.curl_test_ops is None:
             raise Exception('Please provide curl a list of arguments')
-        is_list = isinstance(Scene.curl_test_ops, list)
-        if is_list != True:
-            raise Exception('Please provide a list of arguments')
 
-        curl_test_operations(
+        curl_output = curl_test_operations(
             curl_ops = Scene.curl_test_ops,
             curl_exec_dir = Scene.curl_exec_dir,
             curl_exec_name = Scene.curl_exec_name,
@@ -1442,6 +1425,10 @@ class curl_test_button(Operator):
 
         info = ('Finished sending the following to curl: {0}'.format(Scene.curl_test_ops))
         self.report({'INFO'}, info)
+
+        info = ('Output of curl: {0}'.format(curl_output))
+        self.report({'INFO'}, info)
+
         return {'FINISHED'}
 
 
@@ -1540,13 +1527,11 @@ classes = (
     export_stl_config_panel,
     import_obj_config_panel,
     slicer_config_panel,
-    curl_config_panel,
     print_server_connection_config_panel,
     print_server_slicer_config_panel,
     preview_webcam_config_panel,
-    curl_test_panel)
+    debug_panel)
 
-#    curl_test_panel,
 
 #-------------------------------------------------------------------------
 #   Register classes and other UI stuff
@@ -1554,7 +1539,7 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.utils.register_manual_map(swiftTo3Dprint_manual_map)
+    bpy.utils.register_manual_map(print_shortcuts_manual_map)
 
 
 #-------------------------------------------------------------------------
@@ -1563,7 +1548,7 @@ def register():
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
-    bpy.utils.unregister_manual_map(swiftTo3Dprint_manual_map)
+    bpy.utils.unregister_manual_map(print_shortcuts_manual_map)
 
 
 #-------------------------------------------------------------------------
@@ -1575,8 +1560,7 @@ def menu_func(self, context):
     layout.operator(export_stl_config_panel.bl_idname)
     layout.operator(import_obj_config_panel.bl_idname)
     layout.operator(slicer_config_panel.bl_idname)
-    layout.operator(curl_config_panel.bl_idname)
-    layout.operator(curl_test_panel.bl_idname)
+    layout.operator(debug_panel.bl_idname)
     layout.operator(print_server_buttons_panel.bl_idname)
     layout.operator(print_server_connection_config_panel.bl_idname)
     layout.operator(print_server_slicer_config_panel.bl_idname)
@@ -1589,16 +1573,20 @@ def menu_func(self, context):
 
 
 #-------------------------------------------------------------------------
-#   Makes a named parent if none is present and parents selected object to empty
+#   Parents selected object to 'empty_name' making a named empty object if none exsists
 #-------------------------------------------------------------------------
 def blender_parent_to_named_empty(empty_name=''):
     """
+    # Copy / paste-able block
+    blender_parent_to_named_empty(empty_name='')
+
     # empty_name should be a string and is set by the user in the
     #  Quick Slicer Tools panel of this addon by editing the
     #  Repaired Parent Name text box.
-    # This fancyness of a named empty parent requires the
+    # This fanciness of a named empty parent requires the
     #  addon 'Add Mesh: Extra Objects'
     """
+
     if bpy.data.objects.get(empty_name) is None:
         bpy.ops.object.parent_to_empty(nombre=empty_name)
     else:
@@ -1609,67 +1597,88 @@ def blender_parent_to_named_empty(empty_name=''):
 
 
 #-------------------------------------------------------------------------
-#   Exports selected objects in STL format
+#   Exports selected objects in STL format to 'stl_path'
 #-------------------------------------------------------------------------
-def blender_export_stl(
-        stl_path='',
-        axis_forward='',
-        axis_up='',
-        export_stl_ascii='',
-        export_stl_check_existing='',
-        export_stl_global_scale='',
-        export_stl_use_scene_unit=''):
+def blender_export_stl(stl_path='', export_stl_axis_forward='', export_stl_axis_up='', export_stl_ascii='', export_stl_check_existing='', export_stl_global_scale='', export_stl_use_scene_unit=''):
+    """
+    # Copy / paste-able block
+        blender_export_stl(
+            stl_path='',
+            export_stl_axis_forward='',
+            export_stl_axis_up='',
+            export_stl_ascii='',
+            export_stl_check_existing='',
+            export_stl_global_scale='',
+            export_stl_use_scene_unit='')
 
+    # This is a short cut to bpy.ops.export_mesh.stl with a bit of version detection
+    #  between 2.77 & 2.76 for setting defaults other than those exposed above.
+    """
     blender_version_main = bpy.app.version[0]
     blender_version_sub = bpy.app.version[1]
 
     if blender_version_main is 2 and blender_version_sub >= 77:
         bpy.ops.export_mesh.stl(
-            filepath=stl_path, check_existing=export_stl_check_existing,
-            axis_forward=axis_forward, axis_up=axis_up,
-            filter_glob='*.stl', use_selection=True, global_scale=export_stl_global_scale,
-            use_scene_unit=export_stl_use_scene_unit, ascii=export_stl_ascii,
-            use_mesh_modifiers=True, batch_mode='OFF')
+            filepath = stl_path, check_existing = export_stl_check_existing,
+            axis_forward = export_stl_axis_forward, axis_up = export_stl_axis_up,
+            filter_glob = '*.stl', use_selection = True, global_scale = export_stl_global_scale,
+            use_scene_unit = export_stl_use_scene_unit, ascii = export_stl_ascii,
+            use_mesh_modifiers = True, batch_mode = 'OFF')
 
     elif blender_version_main is 2 and blender_version_sub <= 76:
         bpy.ops.export_mesh.stl(
-            filepath=stl_path, check_existing=export_stl_check_existing,
-            axis_forward=axis_forward, axis_up=axis_up,
-            filter_glob='*.stl', global_scale=export_stl_global_scale,
-            use_scene_unit=export_stl_use_scene_unit, ascii=export_stl_ascii,
+            filepath = stl_path, check_existing = export_stl_check_existing,
+            axis_forward = export_stl_axis_forward, axis_up = export_stl_axis_up,
+            filter_glob = '*.stl', global_scale = export_stl_global_scale,
+            use_scene_unit = export_stl_use_scene_unit, ascii = export_stl_ascii,
             use_mesh_modifiers=True)
 
 
 #-------------------------------------------------------------------------
 #   Imports OBJ file at given 'obj_path'
 #-------------------------------------------------------------------------
-def blender_import_obj(
+def blender_import_obj(obj_path='', import_obj_axis_forward='', import_obj_axis_up='', import_obj_use_edges='', import_obj_use_smooth_groups='', import_obj_use_split_objects='', import_obj_use_split_groups='', import_obj_use_groups_as_vgroups='', import_obj_use_image_search='', import_obj_split_mode='', import_obj_global_clamp_size=''):
+    """
+    # Copy / paste-able block
+    blender_import_obj(
         obj_path='',
-        axis_forward='',
-        axis_up='',
-        useEdges='',
-        useSmoothGroups='',
-        useSplitObjects='',
-        useSplitGroups='',
-        useGroupsAsVgroups='',
-        useImageSearch='',
-        splitMode='',
-        globalClampSize=''):
+        import_obj_axis_forward='',
+        import_obj_axis_up='',
+        import_obj_use_edges='',
+        import_obj_use_smooth_groups='',
+        import_obj_use_split_objects='',
+        import_obj_use_split_groups='',
+        import_obj_use_groups_as_vgroups='',
+        import_obj_use_image_search='',
+        import_obj_split_mode='',
+        import_obj_global_clamp_size='')
+
+    # This is a short cut to bpy.ops.import_scene.obj with all but
+    #  filter_glob exposed to the UI for customization.
+    """
 
     if os.path.exists(obj_path):
         bpy.ops.import_scene.obj(
-            filepath=obj_path, axis_forward=axis_forward,
-            axis_up=axis_up, filter_glob="*.obj;*.mtl",
-            use_edges=useEdges, use_smooth_groups=useSmoothGroups,
-            use_split_objects=useSplitObjects, use_split_groups=useSplitGroups,
-            use_groups_as_vgroups=useGroupsAsVgroups, use_image_search=useImageSearch,
-            split_mode=splitMode, global_clamp_size=globalClampSize)
+            filepath = obj_path, axis_forward = import_obj_axis_forward,
+            axis_up = import_obj_axis_up, filter_glob = "*.obj;*.mtl",
+            use_edges = import_obj_use_edges, use_smooth_groups = import_obj_use_smooth_groups,
+            use_split_objects = import_obj_use_split_objects, use_split_groups = import_obj_use_split_groups,
+            use_groups_as_vgroups = import_obj_use_groups_as_vgroups, use_image_search = import_obj_use_image_search,
+            split_mode = import_obj_split_mode, global_clamp_size = import_obj_global_clamp_size)
 
 
 #-------------------------------------------------------------------------
-#   
+#   Imports text file from 'filepath' and if preexisting clears prior to import
 #-------------------------------------------------------------------------
-def blender_import_gcode_text(filepath=''):
+def blender_import_text(filepath=''):
+    """
+    # Copy / paste-able block
+    blender_import_text(filepath='')
+
+    # This is a short cut to bpy.data.texts and bpy.ops.text.open with checks for
+    #  preexisting files already loaded into current Blender session.
+    """
+
     if os.path.exists(filepath):
         filename = bpy.path.basename(filepath)
     else:
@@ -1689,26 +1698,46 @@ def blender_import_gcode_text(filepath=''):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def blender_webcam_import_local_image(filename='', directory=''):
+def blender_import_local_image(filename='', directory=''):
     """
-    # This will be simplified as "img_file_path='/some/path.some.jpg'"
-    # For now know the order of operations if a preview image are nesisary
-    #  to avoid over complicating the linking processes called by parent functions.
+    # Copy / paste-able block
+    blender_import_local_image(filename='', directory='')
+
+    # This is a short cut to bpy.data.images.load with detection of preexisting
+    #  imported image with the same file name.
+    # Note if using this for texturing an object the texture still will need to
+    #  refresh itself, for example: bpy.data.objects[object_name].data.update()
     """
+
     img = bpy.data.images.get(filename)
     if img is None:
         bpy.data.images.load(os.path.join(directory, filename))
         bpy.data.images[-1].name = filename
     else:
-        # Note the object still must reload for this to work
         bpy.data.images[filename].reload()
 
 
 #-------------------------------------------------------------------------
-#   
+#   Adds a named material to 'object_name'
 #-------------------------------------------------------------------------
-def blender_materialize_object(material_name='', object_name='', diffuse_color=None, use_shadeless=True):
+def blender_materialize_object(object_name='', material_name='', diffuse_color=None, use_shadeless=True):
+    """
+    # Copy / paste-able block
+    blender_materialize_object(object_name='', material_name='', diffuse_color=None, use_shadeless=True)
+
+    # This adds a color if 'diffuse_color' is not None to a named material and
+    #  adds that material to the object defined by 'object_name'
+    #  effectively a short cut for bpy.data.materials.new(name=material_name)
+    #  and bpy.data.objects.get(object_name).data.materials.append(bpy.data.materials.get(material_name))
+    #  with some scripted logic to prevent adding the same material to the same object more than once.
+    """
+
     obj = bpy.data.objects.get(object_name)
+    if obj is None:
+        raise Exception('Could not find object with name "{0}" to add a material to'.format(object_name))
+
+    if material_name is None:
+        material_name = object_name + '_Material'
 
     # Setup new material if none exists for button text
     mat = bpy.data.materials.get(material_name)
@@ -1716,9 +1745,9 @@ def blender_materialize_object(material_name='', object_name='', diffuse_color=N
         mat = bpy.data.materials.new(name=material_name)
 
     if diffuse_color is not None:
-        # Note by addressing the first three this avoides errors with feeding longer lists
-        #  while this will mean that collors between BGE & Textured Object mode
-        #  it also means that there will be buttons with visable & customizable colors
+        # Note by addressing the first three this avoids errors with feeding longer lists
+        #  while this will mean that colors between BGE & Textured Object mode
+        #  it also means that there will be buttons with visible & customized colors
         mat.diffuse_color = (diffuse_color[0], diffuse_color[1], diffuse_color[2])
 
     # Assign or update material on button plane
@@ -1733,20 +1762,28 @@ def blender_materialize_object(material_name='', object_name='', diffuse_color=N
 
 
 #-------------------------------------------------------------------------
-#   
+#   Add an image to a plane and scale the plane to image dimensions
 #-------------------------------------------------------------------------
-def blender_webcam_add_view_plane(
+def blender_webcam_add_view_plane(image_name='', object_name='', material_name='', texture_name='', x_dimension='', y_dimension='', xy_scale='', preview_placement='', preview_layer=''):
+    """
+    # Copy / paste-able block
+    blender_webcam_add_view_plane(
         image_name='',
-        video_object_name='',
-        video_material_name='',
-        video_texture_name='',
+        object_name='',
+        material_name='',
+        texture_name='',
         x_dimension='',
         y_dimension='',
         xy_scale='',
         preview_placement='',
-        preview_layer=''):
+        preview_layer='')
 
-    obj = bpy.data.objects.get(video_object_name)
+    # This adds &/or scales the dimensions of a plane based on an imported image dimensions
+    #  and user defined scaling factor, then either adds or updates the material & texture
+    #  on the plane to display the image in textured 3D view & Blender Game Engine.
+    """
+
+    obj = bpy.data.objects.get(object_name)
     if obj is None:
         layers = []
         for count in range(0, 20):
@@ -1755,13 +1792,13 @@ def blender_webcam_add_view_plane(
             else:
                 layers += [True]
         bpy.ops.mesh.primitive_plane_add(layers=layers)
-        bpy.context.object.name = video_object_name
+        bpy.context.object.name = object_name
         ## The above seems to work but will fail if this addon is called from the command line instead of UI
         ## The following would fail to target at all
-#        bpy.data.meshes[-1].name = video_object_name
+#        bpy.data.meshes[-1].name = object_name
         ## The following would target Suzanne & other objects
-#        bpy.data.objects[-1].name = video_object_name
-        obj = bpy.data.objects.get(video_object_name)
+#        bpy.data.objects[-1].name = object_name
+        obj = bpy.data.objects.get(object_name)
     if obj is None:
         raise Exception('Could not create/target correct preview plane')
 
@@ -1777,37 +1814,44 @@ def blender_webcam_add_view_plane(
     elif 'WEST' in preview_placement:
         obj.location[0] = -obj.dimensions[0]/2
 
-    blender_materialize_object(material_name=video_material_name, object_name=video_object_name, diffuse_color=[0, 0, 0], use_shadeless=True)
-    mat = bpy.data.materials.get(video_material_name)
-    obj_mat = obj.data.materials.get(video_material_name)
+    blender_materialize_object(material_name=material_name, object_name=object_name, diffuse_color=[0, 0, 0], use_shadeless=True)
+    mat = bpy.data.materials.get(material_name)
+    obj_mat = obj.data.materials.get(material_name)
 
-    tex = bpy.data.textures.get(video_texture_name)
+    tex = bpy.data.textures.get(texture_name)
     if tex is None:
-        tex = bpy.data.textures.new(video_texture_name, 'IMAGE')
+        tex = bpy.data.textures.new(texture_name, 'IMAGE')
 
-    mat_slots = mat.texture_slots.get(video_texture_name)
+    mat_slots = mat.texture_slots.get(texture_name)
     if mat_slots is None:
         mat_slots = mat.texture_slots.add()
 
     mat_slots.texture = tex
 
     tex.image = bpy.data.images[image_name]
-    obj.data.materials[video_material_name].texture_slots[video_texture_name].texture_coords = 'ORCO'
+    obj.data.materials[material_name].texture_slots[texture_name].texture_coords = 'ORCO'
 
-#    obj.active_material.use_shadeless = True
-    ## Following is to update object if this is not the first time the preview/stream button has been pressed
-    bpy.data.objects[video_object_name].data.update()
-    ## Following is to update the scene to all the changes required to view an image on a plane within Blender
+    ## Update object if this is not the first time the preview/stream button has been pressed
+    bpy.data.objects[object_name].data.update()
+    ## Update the scene to all the changes required to view an image on a plane within Blender
     bpy.context.scene.update()
 
 
 #-------------------------------------------------------------------------
-#   
+#   Write/update a BGE for updating an object texture with a video stream
 #-------------------------------------------------------------------------
-def blender_webcam_setup_script_text_block(
+def blender_webcam_setup_script_text_block(controller_script_name='', default_image='', video_path=''):
+    """
+    # Copy / paste-able block
+    blender_webcam_setup_script_text_block(
         controller_script_name='',
         default_image='',
-        video_path=''):
+        video_path='')
+
+    # Provide the name of an image already loaded into Blender as 'default_image'
+    #  and either a file path or URL for 'video_path' and a name to call the script
+    #  as 'controller_script_name'
+    """
 
     text_block = bpy.data.texts.get(controller_script_name)
     if text_block is None:
@@ -1831,6 +1875,8 @@ def blender_webcam_setup_script_text_block(
     text_block.write('        bge.render.showMouse(True)\n')
     text_block.write('        ID = bge.texture.materialID(obj, "IM{0}")\n'.format(default_image))
     text_block.write('        bge.logic.video = bge.texture.Texture(obj, ID)\n')
+    # Note if you are looking to steal this function for another project you may also
+    # want the next part for addressing local webcam hardware too
 #    if camera_addr:
 #        text_block.write("        bge.logic.video.source = bge.texture.VideoFFmpeg('{0}', 0)\n".format(camera_addr))
 #    elif video_path:
@@ -1841,26 +1887,33 @@ def blender_webcam_setup_script_text_block(
 
 
 #-------------------------------------------------------------------------
-#   
+#   Link an object with BGE script for video texture updates
 #-------------------------------------------------------------------------
-def blender_webcam_setup_game_logic(
-        video_object_name='',
+def blender_webcam_setup_game_logic(object_name='', sensor_name='', controller_name='', controller_script_name=''):
+    """
+    # Copy / paste-able block
+    blender_webcam_setup_game_logic(
+        object_name='',
         sensor_name='',
         controller_name='',
-        controller_script_name=''):
+        controller_script_name='')
+
+    # This links 'controller_name' & 'sensor_name' with 'controller_script_name' on 'object_name'
+    #  such that when BGE plays the script for updating an object texture with a video is fired
+    """
 
     # Set-up game Sensor for object
-    vid_obj_sensor = bpy.data.objects[video_object_name].game.sensors.get(sensor_name)
+    vid_obj_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_name)
     if vid_obj_sensor is None:
-        bpy.ops.logic.sensor_add(type='ALWAYS', name=sensor_name, object=video_object_name)
-        vid_obj_sensor = bpy.data.objects[video_object_name].game.sensors.get(sensor_name)
+        bpy.ops.logic.sensor_add(type='ALWAYS', name=sensor_name, object=object_name)
+        vid_obj_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_name)
     vid_obj_sensor.use_pulse_true_level = True
 
     # Set-up game Controller for object
-    vid_obj_controller = bpy.data.objects[video_object_name].game.controllers.get(controller_name)
+    vid_obj_controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
     if vid_obj_controller is None:
-        bpy.ops.logic.controller_add(type='PYTHON', name = controller_name, object = video_object_name)
-        vid_obj_controller = bpy.data.objects[video_object_name].game.controllers.get(controller_name)
+        bpy.ops.logic.controller_add(type='PYTHON', name = controller_name, object = object_name)
+        vid_obj_controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
     vid_obj_controller.text = bpy.data.texts[controller_script_name]
 
     # Link things together
@@ -1868,12 +1921,15 @@ def blender_webcam_setup_game_logic(
 
 
 #-------------------------------------------------------------------------
-#   
+#   Link an object with BGE button logic
 #-------------------------------------------------------------------------
-def blender_button_setup_game_logic(
-        object_name='',
-        actuator_type='GAME',
-        actuator_mode='QUIT'):
+def blender_button_setup_game_logic(object_name='', actuator_type='GAME', actuator_mode='QUIT'):
+    """
+    # Copy / paste-able block
+    blender_button_setup_game_logic(object_name='', actuator_type='GAME', actuator_mode='QUIT')
+
+    # This sets up BGE logic bricks on 'object_name' for acting like a mouse selectable button
+    """
 
     sensor_click_name = object_name + '_Sensor_Click'
     sensor_mouseover_name = object_name + '_Sensor_Mouse_Over'
@@ -1916,16 +1972,24 @@ def blender_button_setup_game_logic(
     # Link controller to actuator
     actuator.link(controller)
 
+
 #-------------------------------------------------------------------------
-#   
+#   Add text & background plane scaled to text dimensions
 #-------------------------------------------------------------------------
-def blender_webcam_add_button_text(
+def blender_webcam_add_button_text(text_name='', text_body='', preview_layer='', location='', button_background_color='', button_text_color=''):
+    """
+    # Copy / paste-able block
+    blender_webcam_add_button_text(
         text_name='',
         text_body='',
         preview_layer='',
         location='',
         button_background_color='',
-        button_text_color=''):
+        button_text_color='')
+
+    # This adds text and then scales a new plane behind the text as 'text_name' + '_Plane'
+    #  so that other functions can setup button logic for BGE interactions
+    """
 
     plane_name = text_name + '_Plane'
     plane_material_name = text_name + '_Plane_Material'
@@ -1992,11 +2056,20 @@ def blender_webcam_add_button_text(
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def blender_3dview_modify_viewport(
+def blender_3dview_modify_viewport(animate='', preview_layer='', target_screen='', target_3dview=''):
+    """
+    # Copy / paste-able block
+    blender_3dview_modify_viewport(
         animate='',
         preview_layer='',
         target_screen='',
-        target_3dview=''):
+        target_3dview='')
+
+    # Updates a texture image or starts BGE to enable streaming if 'animate' is True
+    #  the 'target_screen' targets a specific UI screen, for example 'Default'
+    #  the 'target_3dview' targets a specific 3D View port within that screen
+    #  and the 'preview_layer' targets a specific layer to show on that view port.
+    """
 
     viewport_shade='TEXTURED'
     bpy.context.scene.render.engine = Target_render_engine
@@ -2025,16 +2098,16 @@ def blender_3dview_modify_viewport(
 #    Makes directories at a given 'path'
 #-------------------------------------------------------------------------
 def mkdir(dir_path=''):
+    """
+    # Copy / paste-able block
+
+    """
+
     if not os.path.exists(dir_path):
 
         blender_version_main = bpy.app.version[0]
         blender_version_sub = bpy.app.version[1]
 
-        #if blender_version_main is 2 and blender_version_sub >= 77:
-        #    print('# Using bpy.ops.file.directory_new to make the following directory path #')
-        #    print(dir_path)
-        #    bpy.ops.file.directory_new(dir_path)
-        #elif blender_version_main is 2 and blender_version_sub <= 76:
         print('# Using os.makedirs to make the following directory path #')
         print(dir_path)
         os.makedirs(dir_path)
@@ -2044,6 +2117,12 @@ def mkdir(dir_path=''):
 #   Removes temp files at a given 'path'
 #-------------------------------------------------------------------------
 def rm(path=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
     if os.path.exists(path):
         print('# Using os.remove to remove the following path #')
         print(path)
@@ -2054,6 +2133,12 @@ def rm(path=''):
 #   Curl is used for most of the OctoPrint features at this point, side note; this trick does **not** work with slci3r
 #-------------------------------------------------------------------------
 def curl(ops=[], log_ops=[], exec_dir='', exec_name=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
     if os.path.exists(exec_dir):
         curl_array = [os.path.join(exec_dir, curl_exec_name)]
     else:
@@ -2073,6 +2158,12 @@ def curl(ops=[], log_ops=[], exec_dir='', exec_name=''):
 #   Slic3r is used for local slicing of exported STL files from Blender selected objects
 #-------------------------------------------------------------------------
 def slic3r(ops=[], exec_dir='', exec_name=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
     if os.path.exists(exec_dir):
         slic3r_array = [os.path.join(exec_dir, exec_name)]
     else:
@@ -2090,6 +2181,12 @@ def slic3r(ops=[], exec_dir='', exec_name=''):
 #   CuraEngine is used for local slicing of exported STL files from Blender selected objects
 #-------------------------------------------------------------------------
 def curaengine(ops=[], exec_dir='', exec_name=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
     if os.path.exists(exec_dir):
         curaEngine_array = [os.path.join(exec_dir, curaengine_exec_name)]
     else:
@@ -2107,6 +2204,12 @@ def curaengine(ops=[], exec_dir='', exec_name=''):
 #   Executes 'slci3r --repair' on STL file at given 'stl_path'
 #-------------------------------------------------------------------------
 def slic3r_repair_stl(stl_path='', exec_dir='', exec_name=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
     if os.path.exists(stl_path):
         slic3r(exec_dir = exec_dir, exec_name = exec_name, ops = ['--repair', stl_path])
     else:
@@ -2121,6 +2224,11 @@ def curl_download_snapshot(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     curl_ops = ['-k', '--connect-timeout', '15']
     curl_log = []
@@ -2157,6 +2265,11 @@ def octoprint_return_json_file_listing(
         curl_exec_name='',
         log_level='',
         tmp_dir=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     json_file_path = os.path.join(tmp_dir, 'file_list.json')
 
@@ -2212,6 +2325,11 @@ def slice_stl_to_gcode_locally(
         slic3r_extra_args='',
         slic3r_exec_dir='',
         slic3r_exec_name=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if 'Merge' in export_as_individual:
         stl_dir = os.path.dirname(stl_path[0])
@@ -2286,6 +2404,11 @@ def octoprint_upload_file(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if gcode_path:
         file_name = bpy.path.basename(gcode_path)
@@ -2364,9 +2487,11 @@ def octoprint_slice_stl(
         curl_exec_dir = '',
         curl_exec_name = '',
         log_level=''):
+    """
+    # Copy / paste-able block
 
-#    info = ('Starting OctoPrint Slice STL function')
-#    self.report({'INFO'}, info)
+    #
+    """
 
     stl_name = bpy.path.basename(stl_path)
     stl_file_name = stl_name.split('.')
@@ -2452,6 +2577,11 @@ def octoprint_mkdir(
         host_port='',
         user_name='',
         passphrase=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if host_port:
         host_url = host_url + ':' + host_port
@@ -2514,6 +2644,11 @@ def repetier_upload_gcode(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     file_name = bpy.path.basename(gcode_path)
 
@@ -2576,6 +2711,11 @@ def slic3r_repair_loop(
         import_obj_use_image_search='',
         import_obj_split_mode='',
         import_obj_global_clamp_size=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     for object in selected_objects:
         stl_path = os.path.join(temp_stl_directory, object.name + '.stl')
@@ -2586,8 +2726,8 @@ def slic3r_repair_loop(
         # Select current object in for loop
         object.select = True
         blender_export_stl(stl_path = stl_path,
-            axis_forward = export_stl_axis_forward,
-            axis_up = export_stl_axis_up,
+            export_stl_axis_forward = export_stl_axis_forward,
+            export_stl_axis_up = export_stl_axis_up,
             export_stl_ascii = export_stl_ascii,
             export_stl_check_existing = export_stl_check_existing,
             export_stl_global_scale = export_stl_global_scale,
@@ -2599,16 +2739,16 @@ def slic3r_repair_loop(
             stl_path = stl_path)
 
         blender_import_obj(obj_path = obj_path,
-            axis_forward = import_obj_axis_forward,
-            axis_up = import_obj_axis_up,
-            useEdges = import_obj_use_edges,
-            useSmoothGroups = import_obj_use_smooth_groups,
-            useSplitObjects = import_obj_use_split_objects,
-            useSplitGroups = import_obj_use_split_groups,
-            useGroupsAsVgroups = import_obj_use_groups_as_vgroups,
-            useImageSearch = import_obj_use_image_search,
-            splitMode = import_obj_split_mode,
-            globalClampSize = import_obj_global_clamp_size)
+            import_obj_axis_forward = import_obj_axis_forward,
+            import_obj_axis_up = import_obj_axis_up,
+            import_obj_use_edges = import_obj_use_edges,
+            import_obj_use_smooth_groups = import_obj_use_smooth_groups,
+            import_obj_use_split_objects = import_obj_use_split_objects,
+            import_obj_use_split_groups = import_obj_use_split_groups,
+            import_obj_use_groups_as_vgroups = import_obj_use_groups_as_vgroups,
+            import_obj_use_image_search = import_obj_use_image_search,
+            import_obj_split_mode = import_obj_split_mode,
+            import_obj_global_clamp_size = import_obj_global_clamp_size)
 
         # Hide original object & parent imported object to named empty
         object.hide = True
@@ -2652,6 +2792,11 @@ def slic3r_repair_bulk(
         import_obj_use_image_search='',
         import_obj_split_mode='',
         import_obj_global_clamp_size=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if bpy.data.is_saved is True:
         stl_path = os.path.join(temp_stl_directory, bpy.path.basename(bpy.context.blend_data.filepath) + '.stl')
@@ -2661,8 +2806,8 @@ def slic3r_repair_bulk(
 	    obj_path = os.path.join(temp_obj_directory, 'Untitled' + '_fixed.obj')
 
     blender_export_stl(stl_path = stl_path,
-        axis_forward = export_stl_axis_forward,
-        axis_up = export_stl_axis_up,
+        export_stl_axis_forward = export_stl_axis_forward,
+        export_stl_axis_up = export_stl_axis_up,
         export_stl_ascii = export_stl_ascii,
         export_stl_check_existing = export_stl_check_existing,
         export_stl_global_scale = export_stl_global_scale,
@@ -2671,16 +2816,16 @@ def slic3r_repair_bulk(
     slic3r_repair_stl(exec_dir = slic3r_exec_dir, exec_name = slic3r_exec_name, stl_path = stl_path)
 
     blender_import_obj(obj_path = obj_path,
-        axis_forward = import_obj_axis_forward,
-        axis_up = import_obj_axis_up,
-        useEdges = import_obj_use_edges,
-        useSmoothGroups = import_obj_use_smooth_groups,
-        useSplitObjects = import_obj_use_split_objects,
-        useSplitGroups = import_obj_use_split_groups,
-        useGroupsAsVgroups = import_obj_use_groups_as_vgroups,
-        useImageSearch = import_obj_use_image_search,
-        splitMode = import_obj_split_mode,
-        globalClampSize = import_obj_global_clamp_size)
+        import_obj_axis_forward = import_obj_axis_forward,
+        import_obj_axis_up = import_obj_axis_up,
+        import_obj_use_edges = import_obj_use_edges,
+        import_obj_use_smooth_groups = import_obj_use_smooth_groups,
+        import_obj_use_split_objects = import_obj_use_split_objects,
+        import_obj_use_split_groups = import_obj_use_split_groups,
+        import_obj_use_groups_as_vgroups = import_obj_use_groups_as_vgroups,
+        import_obj_use_image_search = import_obj_use_image_search,
+        import_obj_split_mode = import_obj_split_mode,
+        import_obj_global_clamp_size = import_obj_global_clamp_size)
 
     for object in selected_objects:
         object.hide = True
@@ -2738,6 +2883,11 @@ def slice_loop_locally(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     stl_path_list = []
     for object in selected_objects:
@@ -2748,8 +2898,8 @@ def slice_loop_locally(
         object.select = True
 
         blender_export_stl(stl_path=stl_path,
-            axis_forward = export_stl_axis_forward,
-            axis_up = export_stl_axis_up,
+            export_stl_axis_forward = export_stl_axis_forward,
+            export_stl_axis_up = export_stl_axis_up,
             export_stl_ascii = export_stl_ascii,
             export_stl_check_existing = export_stl_check_existing,
             export_stl_global_scale = export_stl_global_scale,
@@ -2802,12 +2952,12 @@ def slice_loop_locally(
                     log_level = log_level)
 
             if bpy.context.scene.preview_gcode:
-                blender_import_gcode_text(filepath=gcode_path)
+                blender_import_text(filepath=gcode_path)
 
         object.hide = True
 
-    # If list exsist we are importing individual STL files for a singular GCODE file, think of it
-    #  like an *auto-arange* from the command line.
+    # If list exist we are importing individual STL files for a singular GCODE file, think of it
+    #  like an *auto-arrange* from the command line.
     if stl_path_list:
         if bpy.data.is_saved is True:
             gcode_path = os.path.join(gcode_dir, bpy.path.basename(bpy.context.blend_data.filepath) + '.gcode')
@@ -2856,7 +3006,7 @@ def slice_loop_locally(
                 log_level = log_level)
 
         if bpy.context.scene.preview_gcode:
-            blender_import_gcode_text(filepath = gcode_path)
+            blender_import_text(filepath = gcode_path)
 
     # Clean-up temp files
     for object in selected_objects:
@@ -2925,6 +3075,11 @@ def slice_bulk_locally(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if bpy.data.is_saved is True:
         stl_path = os.path.join(stl_dir, bpy.path.basename(bpy.context.blend_data.filepath) + '.stl')
@@ -2935,8 +3090,8 @@ def slice_bulk_locally(
 
     blender_export_stl(
         stl_path = stl_path,
-        axis_forward = export_stl_axis_forward,
-        axis_up = export_stl_axis_up,
+        export_stl_axis_forward = export_stl_axis_forward,
+        export_stl_axis_up = export_stl_axis_up,
         export_stl_ascii = export_stl_ascii,
         export_stl_check_existing = export_stl_check_existing,
         export_stl_global_scale = export_stl_global_scale,
@@ -3004,7 +3159,7 @@ def slice_bulk_locally(
                 bpy.ops.wm.url_open(url='{0}'.format(repetier_host))
 
     if bpy.context.scene.preview_gcode:
-        blender_import_gcode_text(filepath = gcode_path)
+        blender_import_text(filepath = gcode_path)
 
 
 #-------------------------------------------------------------------------
@@ -3034,6 +3189,11 @@ def slic3r_repair_operations(
         import_obj_use_image_search='',
         import_obj_split_mode='',
         import_obj_global_clamp_size=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if not selected_objects:
         raise Exception('Please select some objects first.')
@@ -3134,6 +3294,11 @@ def slic3r_slice_operations(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if not selected_objects:
         raise Exception('Please select some objects first.')
@@ -3260,6 +3425,11 @@ def curaengine_slice_operations(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if not selected_objects:
         raise Exception('Please select some objects first.')
@@ -3346,7 +3516,7 @@ def curaengine_slice_operations(
 
 
 #-------------------------------------------------------------------------
-#   Loads user customizations and calls functions required to upload STL files to OctoPrint server
+#   Loads user customization and calls functions required to upload STL files to OctoPrint server
 #-------------------------------------------------------------------------
 def octoprint_upload_stl_operations(
         selected_objects=[],
@@ -3376,6 +3546,11 @@ def octoprint_upload_stl_operations(
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
 
     if not selected_objects:
         raise Exception('Please select some objects first.')
@@ -3388,8 +3563,8 @@ def octoprint_upload_stl_operations(
 
             blender_export_stl(
                 stl_path = stl_path,
-                axis_forward = export_stl_axis_forward,
-                axis_up = export_stl_axis_up,
+                export_stl_axis_forward = export_stl_axis_forward,
+                export_stl_axis_up = export_stl_axis_up,
                 export_stl_ascii = export_stl_ascii,
                 export_stl_check_existing = export_stl_check_existing,
                 export_stl_global_scale = export_stl_global_scale,
@@ -3441,8 +3616,8 @@ def octoprint_upload_stl_operations(
 
         blender_export_stl(
             stl_path = stl_path,
-            axis_forward = export_stl_axis_forward,
-            axis_up = export_stl_axis_up,
+            export_stl_axis_forward = export_stl_axis_forward,
+            export_stl_axis_up = export_stl_axis_up,
             export_stl_ascii = export_stl_ascii,
             export_stl_check_existing = export_stl_check_existing,
             export_stl_global_scale = export_stl_global_scale,
@@ -3510,8 +3685,13 @@ def preview_webcam_operations(
         log_level='',
         button_background_color='',
         button_text_color=''):
+    """
+    # Copy / paste-able block
 
-    # Deselect all meshes, perhaps that will keep new textures off pre-exsisting meshes
+    #
+    """
+
+    # Deselect all meshes, perhaps that will keep new textures off preexisting meshes
     bpy.ops.object.select_all(action='DESELECT')
 
     image_file_name = snapshot_name + '.jpg'
@@ -3542,7 +3722,7 @@ def preview_webcam_operations(
         log_level = log_level)
 
     # Pull in the downloaded picture into current Blender file/scene
-    blender_webcam_import_local_image(filename = image_file_name, directory = snapshot_dir)
+    blender_import_local_image(filename = image_file_name, directory = snapshot_dir)
 
     image_X_size = bpy.data.images[image_file_name].size[0]
     image_Y_size = bpy.data.images[image_file_name].size[1]
@@ -3556,9 +3736,9 @@ def preview_webcam_operations(
     #  server as a texture
     blender_webcam_add_view_plane(
         image_name = image_file_name,
-        video_object_name = image_plane_name,
-        video_material_name = bge_material_name,
-        video_texture_name = bge_texture_name,
+        object_name = image_plane_name,
+        material_name = bge_material_name,
+        texture_name = bge_texture_name,
         x_dimension = image_X_size,
         y_dimension = image_Y_size,
         xy_scale = preview_xy_scale,
@@ -3578,7 +3758,7 @@ def preview_webcam_operations(
     #  such that the user need only use the default keyboard short-cut
     #  'P' within a 3D window to play a live stream from the server.
     blender_webcam_setup_game_logic(
-        video_object_name = image_plane_name,
+        object_name = image_plane_name,
         sensor_name = bge_sensor_name,
         controller_name = bge_controller_name,
         controller_script_name = bge_controller_script_name)
@@ -3613,28 +3793,31 @@ def preview_webcam_operations(
 
 
 def curl_test_operations(
-        curl_ops=[],
+        curl_ops='',
         curl_exec_dir='',
         curl_exec_name='',
         log_level=''):
+    """
+    # Copy / paste-able block
+
+    #
+    """
+
+    if os.path.exists(curl_exec_dir):
+        curl_cmd = os.path.join(curl_exec_dir, curl_exec_name)
+    else:
+        curl_cmd = curl_exec_name
 
     if curl_ops:
-        print('## curl_test_operations recived:', curl_ops)
-#        curl(exec_dir=curl_exec_dir, exec_name=curl_exec_name, ops=curl_ops, log_ops=curl_ops)
-
-#        args = []
-#        extra_args = []
-#        for arg in enumerate(curl_ops.split(', ')):
-#            extra_args += [arg[1]]
-#        args.extend(extra_args)
-#
-#        curl(exec_dir=curl_exec_dir, exec_name=curl_exec_name, ops=args, log_ops=args)
-
+        curl_cmd += ' ' + curl_ops
+#        curl_output = '## curl_test_operations capturing output of: {0}'.format(curl_cmd)
+        curl_output = subprocess.getoutput(curl_cmd)
+        return curl_output
 
 #-------------------------------------------------------------------------
 #    This allows you to right click on a button and link to the manual
 #-------------------------------------------------------------------------
-def swiftTo3Dprint_manual_map():
+def print_shortcuts_manual_map():
     url_manual_prefix = 'https://docs.blender.org/manual/en/dev/'
     url_manual_mapping = (
         ('bpy.object.3DPrint_Short_Cuts', 'to-be-decided'),
