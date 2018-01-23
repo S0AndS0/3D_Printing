@@ -2274,14 +2274,14 @@ def octoprint_return_json_file_listing(
         elif log_level == 'SCRUBBED':
             curl_log += ['-u', 'USER:PASS']
 
-    if octoprint_target_search_dir:
-        curl_ops += ['{0}{1}/{2}'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
+    if octoprint_target_search_dir and octoprint_target_search_dir != 'RECURSIVE':
+        curl_ops += ['{0}{1}/{2}?recursive=true'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
         if log_level != 'QUITE':
-            curl_log += ['{0}{1}/{2}'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
+            curl_log += ['{0}{1}/{2}?recursive=true'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
     else:
-        curl_ops += ['{0}{1}'.format(host_url, octoprint_api_path), '-o', json_file_path]
+        curl_ops += ['{0}{1}?recursive=true'.format(host_url, octoprint_api_path), '-o', json_file_path]
         if log_level != 'QUITE':
-            curl_log += ['{0}{1}'.format(host_url, octoprint_api_path), '-o', json_file_path]
+            curl_log += ['{0}{1}?recursive=true'.format(host_url, octoprint_api_path), '-o', json_file_path]
 
     curl(exec_dir = curl_exec_dir, exec_name = curl_exec_name, ops = curl_ops, log_ops = curl_log)
     if os.path.exists(json_file_path):
@@ -3804,6 +3804,25 @@ def curl_test_operations(
         return curl_output
 
 
+def octoprint_return_file_list_type(dict_obj=None, return_type='folder'):
+    """
+    # Copy / paste block
+    octoprint_return_file_list_type(dict_obj=None, return_type='folder')
+
+    # 'return_type' maybe 'folder' or 'machinecode' or 'model'
+    # 'dict_obj' should be a list of list / dictionary from
+    # a parsed JSON list without the 'children' type.
+    """
+    if dict_obj is None or return_type is None:
+        raise Exception('# No dictionary provided to parse')
+
+    items = []
+    for count, item in enumerate(dict_obj):
+        if item['type'] == return_type:
+            items += [item]
+    return items
+
+
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
@@ -3833,28 +3852,41 @@ def octoprint_parse_file_list_operations(
         log_level = log_level,
         tmp_dir = tmp_dir)
 
-#    print(parsed_json)
-#    print('## Free space ##', parsed_json['free'])
-#    print('## Used space ##', parsed_json['total'])
-    dirs = []
-    model_files = []
-    machinecode_files = []
-    if octoprint_target_search_dir is None:
-        for count, item in enumerate(parsed_json['files']):
-#            print('#', count, '--', item)
-            if item['type'] == 'model':
-                model_files += [item]
-            elif item['type'] == 'machinecode':
-                machinecode_files += [item]
-            elif item['type'] == 'folder':
-                dirs += [item]
-            else:
-                print('Unknown type:', item['type'])
+    if octoprint_target_search_dir:
+        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'folder')
+        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'machinecode')
+        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'model')
+
+        print('####')
+        print('## Read dirs ##', dirs)
+        print('####')
+        print('## Read machinecode_files ##', machinecode_files)
+        print('####')
+        print('## Read model_files ##', model_files)
+        print('####')
+    else:
+        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'folder')
+        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'machinecode')
+        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'model')
+
+        print('####')
+        print('## Read dirs ##', dirs)
+        print('####')
+        print('## Read machinecode_files ##', machinecode_files)
+        print('####')
+        print('## Read model_files ##', model_files)
+        print('####')
+
+    # The above is a bit tricky but allows for bellow to fire without errors
+    #  esentually the root OctoPrint dir provides different IDs to hook onto
+    #  than sub-directories & provides different information regardless of
+    #  if recursive is set to true
 
     if log_level != 'QUITE':
         if model_files or machinecode_files or dirs:
-            print('## Free space ##', parsed_json['free'])
-            print('## Used space ##', parsed_json['total'])
+            if octoprint_target_search_dir is None:
+                print('## Free space ##', parsed_json['free'])
+                print('## Used space ##', parsed_json['total'])
 
         if model_files:
             print('## Printing model_files from octoprint_target_search_dir', octoprint_target_search_dir)
