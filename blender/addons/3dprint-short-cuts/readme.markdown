@@ -31,7 +31,7 @@ This add-on allows for turning a selection of object within Blender into either
 ## Installation
 
 
-0. Download the Python file [3DPrint Short-Cuts]({{ base }}/blender/addons/3dprint-short-cuts/3dprint_shortcuts.py)
+0. Download the Python file [3DPrint Short-Cuts]({{ base }}/blender/addons/3dprint-short-cuts/print_shortcuts.py)
 
 0. Within Blender select 'File', then `User Preferences` or use the keyboard
  short-cut `Ctrl Alt U`
