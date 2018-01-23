@@ -2232,7 +2232,7 @@ def curl_download_snapshot(
         log_ops = curl_log)
 
 
-def octoprint_return_json_file_listing(
+def octoprint_download_json_file_listing(
         octoprint_target_search_dir="",
         octoprint_host='',
         octoprint_x_api_key='',
@@ -2283,7 +2283,17 @@ def octoprint_return_json_file_listing(
         if log_level != 'QUITE':
             curl_log += ['{0}{1}?recursive=true'.format(host_url, octoprint_api_path), '-o', json_file_path]
 
+#    curl_ops += ['{0}{1}?recursive=true'.format(host_url, octoprint_api_path), '-o', json_file_path]
+#    if log_level != 'QUITE':
+#        curl_log += ['{0}{1}?recursive=true'.format(host_url, octoprint_api_path), '-o', json_file_path]
+
     curl(exec_dir = curl_exec_dir, exec_name = curl_exec_name, ops = curl_ops, log_ops = curl_log)
+
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def octoprint_return_file_listing_parsed_json(json_file_path='', log_level='QUITE'):
     if os.path.exists(json_file_path):
         if log_level != 'QUITE':
             blender_import_text(filepath = json_file_path)
@@ -3826,72 +3836,23 @@ def octoprint_return_file_list_type(dict_obj=None, return_type='folder'):
 #-------------------------------------------------------------------------
 #   
 #-------------------------------------------------------------------------
-def octoprint_parse_file_list_operations(
+def octoprint_parse_file_list_printer(
+        dirs='',
+        machinecode_files='',
+        model_files='',
         octoprint_target_search_dir='',
-        octoprint_host='',
-        octoprint_x_api_key='',
-        octoprint_api_path='',
-        octoprint_port='',
-        octoprint_user='',
-        octoprint_pass='',
-        curl_exec_dir='',
-        curl_exec_name='',
-        log_level='',
-        tmp_dir=''):
-
-    parsed_json = octoprint_return_json_file_listing(
-        octoprint_target_search_dir = octoprint_target_search_dir,
-        octoprint_host = octoprint_host,
-        octoprint_x_api_key = octoprint_x_api_key,
-        octoprint_api_path = octoprint_api_path,
-        octoprint_port = octoprint_port,
-        octoprint_user = octoprint_user,
-        octoprint_pass = octoprint_pass,
-        curl_exec_dir = curl_exec_dir,
-        curl_exec_name = curl_exec_name,
-        log_level = log_level,
-        tmp_dir = tmp_dir)
-
-    if octoprint_target_search_dir:
-        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'folder')
-        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'machinecode')
-        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'model')
-
-        print('####')
-        print('## Read dirs ##', dirs)
-        print('####')
-        print('## Read machinecode_files ##', machinecode_files)
-        print('####')
-        print('## Read model_files ##', model_files)
-        print('####')
-    else:
-        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'folder')
-        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'machinecode')
-        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'model')
-
-        print('####')
-        print('## Read dirs ##', dirs)
-        print('####')
-        print('## Read machinecode_files ##', machinecode_files)
-        print('####')
-        print('## Read model_files ##', model_files)
-        print('####')
-
-    # The above is a bit tricky but allows for bellow to fire without errors
-    #  esentually the root OctoPrint dir provides different IDs to hook onto
-    #  than sub-directories & provides different information regardless of
-    #  if recursive is set to true
+        log_level='QUITE'):
 
     if log_level != 'QUITE':
         if model_files or machinecode_files or dirs:
+            # If targeting the root server directory then we have access to the following data
             if octoprint_target_search_dir is None:
                 print('## Free space ##', parsed_json['free'])
                 print('## Used space ##', parsed_json['total'])
 
         if model_files:
-            print('## Printing model_files from octoprint_target_search_dir', octoprint_target_search_dir)
-            for count, item in enumerate(model_files):
-        #        print('#', count, '--', item)
+            print('# Printing model_files from octoprint_target_search_dir', octoprint_target_search_dir)
+            for item in model_files:
                 print('## Refs Resource:', item['refs']['resource'])
                 print('## Refs Download:', item['refs']['download'])
                 print('## Mount:', item['origin'])
@@ -3905,9 +3866,8 @@ def octoprint_parse_file_list_operations(
                 print('## Type Path:', item['typePath'])
 
         if machinecode_files:
-            print('## Printing machinecode_files from octoprint_target_search_dir', octoprint_target_search_dir)
-            for count, item in enumerate(machinecode_files):
-        #        print('#', count, '--', item)
+            print('# Printing machinecode_files from octoprint_target_search_dir', octoprint_target_search_dir)
+            for item in machinecode_files:
                 print('## Refs Resource:', item['refs']['resource'])
                 print('## Refs Download:', item['refs']['download'])
                 print('## Mount:', item['origin'])
@@ -3935,9 +3895,8 @@ def octoprint_parse_file_list_operations(
                 print('## Type Path:', item['typePath'])
 
         if dirs:
-            print('## Printing dirs from octoprint_target_search_dir', octoprint_target_search_dir)
-            for count, item in enumerate(dirs):
-        #        print('#', count, '--', item)
+            print('# Printing dirs from octoprint_target_search_dir', octoprint_target_search_dir)
+            for item in dirs:
                 print('## Refs Resource:', item['refs']['resource'])
                 print('## Mount:', item['origin'])
                 print('## Type:', item['type'])
@@ -3945,6 +3904,76 @@ def octoprint_parse_file_list_operations(
                 print('## Display', item['display'])
                 print('## Path:', item['path'])
                 print('## Type Path:', item['typePath'])
+
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def octoprint_parse_file_list_operations(
+        octoprint_target_search_dir='',
+        octoprint_host='',
+        octoprint_x_api_key='',
+        octoprint_api_path='',
+        octoprint_port='',
+        octoprint_user='',
+        octoprint_pass='',
+        curl_exec_dir='',
+        curl_exec_name='',
+        log_level='',
+        tmp_dir=''):
+
+    octoprint_download_json_file_listing(
+        octoprint_target_search_dir = octoprint_target_search_dir,
+        octoprint_host = octoprint_host,
+        octoprint_x_api_key = octoprint_x_api_key,
+        octoprint_api_path = octoprint_api_path,
+        octoprint_port = octoprint_port,
+        octoprint_user = octoprint_user,
+        octoprint_pass = octoprint_pass,
+        curl_exec_dir = curl_exec_dir,
+        curl_exec_name = curl_exec_name,
+        log_level = log_level,
+        tmp_dir = tmp_dir)
+
+    json_file_path = os.path.join(tmp_dir, 'file_list.json')
+    parsed_json = octoprint_return_file_listing_parsed_json(json_file_path = json_file_path, log_level = log_level)
+
+    if octoprint_target_search_dir:
+#        for item in parsed_json['files']:
+#            is_subdir = item.get('children')
+#            if is_subdir:
+#                dirs = octoprint_return_file_list_type(dict_obj = item['children'], return_type = 'folder')
+#                machinecode_files = octoprint_return_file_list_type(dict_obj = item['children'], return_type = 'machinecode')
+#                model_files = octoprint_return_file_list_type(dict_obj = item['children'], return_type = 'model')
+#
+#                octoprint_parse_file_list_printer(
+#                    dirs=dirs,
+#                    machinecode_files=machinecode_files,
+#                    model_files=model_files,
+#                    octoprint_target_search_dir=octoprint_target_search_dir,
+#                    log_level=log_level)
+
+        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'folder')
+        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'machinecode')
+        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['children'], return_type = 'model')
+        octoprint_parse_file_list_printer(
+            dirs=dirs,
+            machinecode_files=machinecode_files,
+            model_files=model_files,
+            octoprint_target_search_dir=octoprint_target_search_dir,
+            log_level=log_level)
+    else:
+        dirs = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'folder')
+        machinecode_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'machinecode')
+        model_files = octoprint_return_file_list_type(dict_obj = parsed_json['files'], return_type = 'model')
+
+        octoprint_parse_file_list_printer(
+            dirs=dirs,
+            machinecode_files=machinecode_files,
+            model_files=model_files,
+            octoprint_target_search_dir=octoprint_target_search_dir,
+            log_level=log_level)
+
 
 
 #-------------------------------------------------------------------------
