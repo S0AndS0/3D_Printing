@@ -661,6 +661,11 @@ class octoprint_preview_webcam_settings(PropertyGroup):
         min=0,
         max=9,
     )
+    Scene.octoprint_target_search_dir = StringProperty(
+        name='OctoPrint Target Search Dir',
+        default='',
+        description='Search directory of octoprint server by downloading JSON and parsing it, useful for testing future features',
+    )
 
 
 #-------------------------------------------------------------------------
@@ -796,7 +801,6 @@ class print_server_buttons_panel(Panel):
             layout.prop(scene, 'octoprint_save_stl_dir', text='STL Directory')
             layout.operator('object.octoprint_upload_stl_button', text='Upload Selected as STL')
             layout.prop(scene, 'octoprint_slice_uploaded_stl', text='Slice Uploaded STL(s)')
-            layout.operator('object.octoprint_download_file_list', text='Parse OctoPrint File list')
         if 'Repetier' in scene.prefered_print_server:
             layout.operator('object.repetier_preview_webcam_button', text='Preview Build Plate')
             layout.operator('object.repetier_stream_webcam_button', text='Stream Build Plate')
@@ -823,8 +827,14 @@ class debug_panel(Panel):
         scene = context.scene
         layout = self.layout
 
+        layout.label(text='Test Curl from Blender')
         layout.prop(scene, 'curl_test_ops', text='Curl argument string')
         layout.operator('object.curl_test_button', text='Test Curl')
+
+        if 'OctoPrint' in scene.prefered_print_server:
+            layout.label(text='Test future features')
+            layout.prop(scene, 'octoprint_target_search_dir', text='OctoPrint search Dir')
+            layout.operator('object.octoprint_download_file_list', text='Parse OctoPrint File list')
 
 
 #-------------------------------------------------------------------------
@@ -1443,52 +1453,18 @@ class octoprint_download_file_list_button(Operator):
     def execute(self, context):
         Scene = context.scene
 
-        parsed_json = octoprint_return_json_file_listing(
-            octoprint_host=Scene.octoprint_host,
-            octoprint_x_api_key=Scene.octoprint_x_api_key,
-            octoprint_port=Scene.octoprint_port,
-            octoprint_user=Scene.octoprint_user,
-            octoprint_pass=Scene.octoprint_pass,
+        octoprint_parse_file_list_operations(
+            octoprint_target_search_dir =  Scene.octoprint_target_search_dir,
+            octoprint_host = Scene.octoprint_host,
+            octoprint_x_api_key = Scene.octoprint_x_api_key,
+            octoprint_api_path = Scene.octoprint_api_path,
+            octoprint_port = Scene.octoprint_port,
+            octoprint_user = Scene.octoprint_user,
+            octoprint_pass = Scene.octoprint_pass,
             curl_exec_dir = Scene.curl_exec_dir,
             curl_exec_name = Scene.curl_exec_name,
             log_level = Scene.log_level,
             tmp_dir = Scene.octoprint_snapshot_dir)
-
-        for dir in parsed_json['files']:
-            for file in dir['children']:
-                print('#########')
-                print('## Refs Resource:', file['refs']['resource'])
-                if file['type'] != 'folder':
-                    print('## Refs Download:', file['refs']['download'])
-
-                print('## Mount:', file['origin'])
-                print('## Type:', file['type'])
-                print('## Size:', file['size'])
-                print('## Name:', file['name'])
-                if file['type'] == 'machinecode':
-                    print('### GCode Analysis Filament:', file['gcodeAnalysis']['filament'])
-                    for count, tool in enumerate(file['gcodeAnalysis']['filament']):
-                        print('#### Tool #{0}'.format(count))
-                        print('#### Length:', file['gcodeAnalysis']['filament'][tool]['length'])
-                        print('#### Volume:', file['gcodeAnalysis']['filament'][tool]['volume'])
-
-                    print('#### Dimensions Depth:', file['gcodeAnalysis']['dimensions']['depth'])
-                    print('#### Dimensions Height:', file['gcodeAnalysis']['dimensions']['height'])
-                    print('#### Dimensions Width:', file['gcodeAnalysis']['dimensions']['width'])
-                    print('#### Printing Area Max Y:', file['gcodeAnalysis']['printingArea']['maxY'])
-                    print('#### Printing Area Min Y:', file['gcodeAnalysis']['printingArea']['minY'])
-                    print('#### Printing Area Max X:', file['gcodeAnalysis']['printingArea']['maxX'])
-                    print('#### Printing Area Min X:', file['gcodeAnalysis']['printingArea']['minX'])
-                    print('#### Printing Area Max Z:', file['gcodeAnalysis']['printingArea']['maxZ'])
-                    print('#### Printing Area Min Z:', file['gcodeAnalysis']['printingArea']['minZ'])
-                    print('#### Estimated Print Time:', file['gcodeAnalysis']['estimatedPrintTime'])
-                elif file['type'] == 'model':
-                    print('## Hash:', file['hash'])
-                    print('## Date:', file['date'])
-
-                print('## Display', file['display'])
-                print('## Path:', file['path'])
-                print('## Type Path:', file['typePath'])
 
         info = ('Finished')
         self.report({'INFO'}, info)
@@ -1684,15 +1660,16 @@ def blender_import_text(filepath=''):
     else:
         raise Exception('Function: blender_import_text needs a file path to import text from.')
 
-    text_block = bpy.data.texts.get(filename)
-    if text_block is None:
+    text_obj = bpy.data.texts.get(filename)
+    if text_obj is None:
         bpy.ops.text.open(filepath=filepath)
-        bpy.data.texts[-1].name = filename
-        text_block = bpy.data.texts[filename]
     else:
-        bpy.data.texts[filename].clear()
-        bpy.data.texts.remove(text_block)
+        text_obj.clear()
+        bpy.data.texts.remove(text_obj)
         bpy.ops.text.open(filepath=filepath)
+
+    text_obj = bpy.data.texts.get(filename)
+    return text_obj
 
 
 #-------------------------------------------------------------------------
@@ -2256,8 +2233,10 @@ def curl_download_snapshot(
 
 
 def octoprint_return_json_file_listing(
+        octoprint_target_search_dir="",
         octoprint_host='',
         octoprint_x_api_key='',
+        octoprint_api_path='',
         octoprint_port='',
         octoprint_user='',
         octoprint_pass='',
@@ -2295,12 +2274,19 @@ def octoprint_return_json_file_listing(
         elif log_level == 'SCRUBBED':
             curl_log += ['-u', 'USER:PASS']
 
-    curl_ops += ['{0}/api/files?recursive=true'.format(host_url), '-o', json_file_path]
-    if log_level != 'QUITE':
-        curl_log += ['{0}/api/files?recursive=true'.format(host_url), '-o', json_file_path]
+    if octoprint_target_search_dir:
+        curl_ops += ['{0}{1}/{2}'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
+        if log_level != 'QUITE':
+            curl_log += ['{0}{1}/{2}'.format(host_url, octoprint_api_path, octoprint_target_search_dir), '-o', json_file_path]
+    else:
+        curl_ops += ['{0}{1}'.format(host_url, octoprint_api_path), '-o', json_file_path]
+        if log_level != 'QUITE':
+            curl_log += ['{0}{1}'.format(host_url, octoprint_api_path), '-o', json_file_path]
 
     curl(exec_dir = curl_exec_dir, exec_name = curl_exec_name, ops = curl_ops, log_ops = curl_log)
     if os.path.exists(json_file_path):
+        if log_level != 'QUITE':
+            blender_import_text(filepath = json_file_path)
         with open(json_file_path) as json_file:
             parsed_json = json.load(json_file)
         return parsed_json
@@ -2952,7 +2938,7 @@ def slice_loop_locally(
                     log_level = log_level)
 
             if bpy.context.scene.preview_gcode:
-                blender_import_text(filepath=gcode_path)
+                blender_import_text(filepath = gcode_path)
 
         object.hide = True
 
@@ -3624,13 +3610,13 @@ def octoprint_upload_stl_operations(
             export_stl_use_scene_unit = export_stl_use_scene_unit)
 
         octoprint_upload_file(
-            stl_path=stl_path,
+            stl_path = stl_path,
             host_url = octoprint_host,
             api_path = octoprint_api_path,
             xapi_key = octoprint_x_api_key,
             host_port = octoprint_port,
             user_name = octoprint_user,
-            passphrase = scene.octoprint_pass,
+            passphrase = octoprint_pass,
             stl_dir = octoprint_save_stl_dir,
             curl_exec_dir = curl_exec_dir,
             curl_exec_name = curl_exec_name,
@@ -3792,6 +3778,9 @@ def preview_webcam_operations(
             target_3dview = target_3dview)
 
 
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
 def curl_test_operations(
         curl_ops='',
         curl_exec_dir='',
@@ -3813,6 +3802,118 @@ def curl_test_operations(
 #        curl_output = '## curl_test_operations capturing output of: {0}'.format(curl_cmd)
         curl_output = subprocess.getoutput(curl_cmd)
         return curl_output
+
+
+#-------------------------------------------------------------------------
+#   
+#-------------------------------------------------------------------------
+def octoprint_parse_file_list_operations(
+        octoprint_target_search_dir='',
+        octoprint_host='',
+        octoprint_x_api_key='',
+        octoprint_api_path='',
+        octoprint_port='',
+        octoprint_user='',
+        octoprint_pass='',
+        curl_exec_dir='',
+        curl_exec_name='',
+        log_level='',
+        tmp_dir=''):
+
+    parsed_json = octoprint_return_json_file_listing(
+        octoprint_target_search_dir = octoprint_target_search_dir,
+        octoprint_host = octoprint_host,
+        octoprint_x_api_key = octoprint_x_api_key,
+        octoprint_api_path = octoprint_api_path,
+        octoprint_port = octoprint_port,
+        octoprint_user = octoprint_user,
+        octoprint_pass = octoprint_pass,
+        curl_exec_dir = curl_exec_dir,
+        curl_exec_name = curl_exec_name,
+        log_level = log_level,
+        tmp_dir = tmp_dir)
+
+#    print(parsed_json)
+#    print('## Free space ##', parsed_json['free'])
+#    print('## Used space ##', parsed_json['total'])
+    dirs = []
+    model_files = []
+    machinecode_files = []
+    if octoprint_target_search_dir is None:
+        for count, item in enumerate(parsed_json['files']):
+#            print('#', count, '--', item)
+            if item['type'] == 'model':
+                model_files += [item]
+            elif item['type'] == 'machinecode':
+                machinecode_files += [item]
+            elif item['type'] == 'folder':
+                dirs += [item]
+            else:
+                print('Unknown type:', item['type'])
+
+    if log_level != 'QUITE':
+        if model_files or machinecode_files or dirs:
+            print('## Free space ##', parsed_json['free'])
+            print('## Used space ##', parsed_json['total'])
+
+        if model_files:
+            print('## Printing model_files from octoprint_target_search_dir', octoprint_target_search_dir)
+            for count, item in enumerate(model_files):
+        #        print('#', count, '--', item)
+                print('## Refs Resource:', item['refs']['resource'])
+                print('## Refs Download:', item['refs']['download'])
+                print('## Mount:', item['origin'])
+                print('## Type:', item['type'])
+                print('## Size:', item['size'])
+                print('## Name:', item['name'])
+                print('## Hash:', item['hash'])
+                print('## Date:', item['date'])
+                print('## Display', item['display'])
+                print('## Path:', item['path'])
+                print('## Type Path:', item['typePath'])
+
+        if machinecode_files:
+            print('## Printing machinecode_files from octoprint_target_search_dir', octoprint_target_search_dir)
+            for count, item in enumerate(machinecode_files):
+        #        print('#', count, '--', item)
+                print('## Refs Resource:', item['refs']['resource'])
+                print('## Refs Download:', item['refs']['download'])
+                print('## Mount:', item['origin'])
+                print('## Type:', item['type'])
+                print('## Size:', item['size'])
+                print('## Name:', item['name'])
+                print('### GCode Analysis Filament:', item['gcodeAnalysis']['filament'])
+                for count, tool in enumerate(item['gcodeAnalysis']['filament']):
+                    print('#### Tool #{0}'.format(count))
+                    print('#### Length:', item['gcodeAnalysis']['filament'][tool]['length'])
+                    print('#### Volume:', item['gcodeAnalysis']['filament'][tool]['volume'])
+
+                print('#### Dimensions Depth:', item['gcodeAnalysis']['dimensions']['depth'])
+                print('#### Dimensions Height:', item['gcodeAnalysis']['dimensions']['height'])
+                print('#### Dimensions Width:', item['gcodeAnalysis']['dimensions']['width'])
+                print('#### Printing Area Max Y:', item['gcodeAnalysis']['printingArea']['maxY'])
+                print('#### Printing Area Min Y:', item['gcodeAnalysis']['printingArea']['minY'])
+                print('#### Printing Area Max X:', item['gcodeAnalysis']['printingArea']['maxX'])
+                print('#### Printing Area Min X:', item['gcodeAnalysis']['printingArea']['minX'])
+                print('#### Printing Area Max Z:', item['gcodeAnalysis']['printingArea']['maxZ'])
+                print('#### Printing Area Min Z:', item['gcodeAnalysis']['printingArea']['minZ'])
+                print('#### Estimated Print Time:', item['gcodeAnalysis']['estimatedPrintTime'])
+                print('## Display', item['display'])
+                print('## Path:', item['path'])
+                print('## Type Path:', item['typePath'])
+
+        if dirs:
+            print('## Printing dirs from octoprint_target_search_dir', octoprint_target_search_dir)
+            for count, item in enumerate(dirs):
+        #        print('#', count, '--', item)
+                print('## Refs Resource:', item['refs']['resource'])
+                print('## Mount:', item['origin'])
+                print('## Type:', item['type'])
+                print('## Name:', item['name'])
+                print('## Display', item['display'])
+                print('## Path:', item['path'])
+                print('## Type Path:', item['typePath'])
+
 
 #-------------------------------------------------------------------------
 #    This allows you to right click on a button and link to the manual
