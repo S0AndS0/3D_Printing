@@ -193,11 +193,9 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 - Note for OctoPrint users specifically; the `Server Slicer Settings` panel
  maybe used to upload selected objects from Blender as STL files for slicing server
  side, however, sending multiple files for slicing is not supported just yet.
-{% endcapture %}
-{% include spoiler.html summary=summary content=content format="md"%}
 
 
-## Other Blender addons that maybe of interest to users of this addon
+### Other Blender addons that maybe of interest to users of this addon
 
 
 > Note the following are only what could be found via web searching for 3rd
@@ -210,6 +208,8 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 - [BlenderCAM](https://blendercam.blogspot.com/p/blender-cam-description.html)
 
 - [OctoBlend](https://github.com/CreativeTools/octoblend)
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
 
 
 [CuraEngine-GitHub]: https://github.com/Ultimaker/CuraEngine
