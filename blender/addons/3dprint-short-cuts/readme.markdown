@@ -212,6 +212,71 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 {% include spoiler.html summary=summary content=content format="md"%}
 
 
+## Resources used
+{% assign summary = 'Click to show/hide'%}
+{% capture content %}
+### Blender Stack Exchange
+
+
+- [batch exporting of multiple objects into separate STL files](https://blender.stackexchange.com/questions/33755/batch-exporting-of-multiple-objects-into-separate-stl-files)
+- [how to add a select path input in a UI addon script](https://blender.stackexchange.com/questions/2382/how-to-add-a-select-path-input-in-a-ui-addon-script)
+- [how to show to the user a progression in a script](https://blender.stackexchange.com/questions/3219/how-to-show-to-the-user-a-progression-in-a-script)
+- [how can I add a checkbox in the tools UI](https://blender.stackexchange.com/questions/35007/how-can-i-add-a-checkbox-in-the-tools-ui)
+- [how to get the directory of open blend file from python](https://blender.stackexchange.com/questions/6842/how-to-get-the-directory-of-open-blend-file-from-python)
+- [attribute error restrict data object has no attribute filepath](https://blender.stackexchange.com/questions/8702/attributeerror-restrictdata-object-has-no-attribute-filepath)
+- [how to get Blender version number from Python](https://blender.stackexchange.com/questions/45528/how-to-get-blenders-version-number-from-python)
+- [make object "a" a parent of object "b" via Python](https://blender.stackexchange.com/questions/9200/make-object-a-a-parent-of-object-b-via-python)
+- [start and exit buttons are not working properly in Blender game](https://blender.stackexchange.com/questions/94998/start-and-exit-buttons-are-not-working-properly-in-blender-game)
+
+
+### Stack Overflow
+
+- [what is the best way to exit a function which has no return value in python be](https://stackoverflow.com/questions/6190776/what-is-the-best-way-to-exit-a-function-which-has-no-return-value-in-python-be)
+- [Python http-multipart form data post request](https://stackoverflow.com/questions/15767785/python-http-multipart-form-data-post-request)
+- [create file path from variables](https://stackoverflow.com/questions/3751900/create-file-path-from-variables)
+- [appending two arrays together in Python](https://stackoverflow.com/questions/8214519/appending-two-arrays-together-in-python)
+- [how to convert list to string](https://stackoverflow.com/questions/5618878/how-to-convert-list-to-string)
+- [how to post json data with curl from terminal commandline to test spring rest](https://stackoverflow.com/questions/7172784/how-to-post-json-data-with-curl-from-terminal-commandline-to-test-spring-rest)
+- [Blender script how to write to text object](https://stackoverflow.com/questions/17388912/blender-script-how-to-write-to-text-object)
+- [parsing values from a json file](https://stackoverflow.com/questions/2835559/parsing-values-from-a-json-file)
+- [Python what OS am I running on](https://stackoverflow.com/questions/1854/python-what-os-am-i-running-on)
+
+
+### Blender Artists
+
+
+- [How to test if an object exists](https://blenderartists.org/forum/showthread.php?283468-How-to-test-if-an-object-exists)
+- [Read an ASCII file into the Text Editor](https://blenderartists.org/forum/archive/index.php/t-224328.html)
+- [Show mouse script](https://blenderartists.org/forum/showthread.php?254880-Show-mouse-script)
+
+
+### Blender documentation
+
+
+- [info tutorial addon](https://docs.blender.org/api/blender_python_api_2_65_5/info_tutorial_addon.html)
+- [bpy.types.PropertyGroup](https://docs.blender.org/api/blender_python_api_current/bpy.types.PropertyGroup.html)
+- [info tips and tricks](https://docs.blender.org/api/blender_python_api_2_61_0/info_tips_and_tricks.html)
+
+### Misc. Manuals
+
+
+- [getting Slic3r](http://manual.slic3r.org/getting-slic3r/getting-slic3r)
+- [OctoPrint - upload file or create folder](http://docs.octoprint.org/en/master/api/files.html#upload-file-or-create-folder)
+- [using simplify 3D Repetier server](https://www.repetier-server.com/using-simplify-3d-repetier-server/)
+- [Addon_User_Interface](https://en.wikibooks.org/w/index.php?title=Blender_3D:_Noob_to_Pro/Advanced_Tutorials/Python_Scripting/Addon_User_Interface&stable=0#Put_It_All_Together)
+
+
+### Misc. Examples
+
+
+- [creating Blender 2.6 Python add on](https://michelanders.blogspot.com/p/creating-blender-26-python-add-on.html)
+- [how to send post request using urllib only in Python 3](https://donjajo.com/how-to-send-post-request-using-urllib-only-in-python3/)
+- [reading and writing to files in Python](https://www.pythoncentral.io/reading-and-writing-to-files-in-python/)
+- [add_empty_as_parent.py](https://github.com/scorpion81/blender-addons/blob/master/add_mesh_extra_objects/add_empty_as_parent.py)
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
+
+
 [CuraEngine-GitHub]: https://github.com/Ultimaker/CuraEngine
 [Slic3r-GitHub]: https://github.com/alexrj/Slic3r
 [Curl-GitHub]: https://github.com/curl/curl
