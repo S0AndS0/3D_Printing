@@ -1,33 +1,33 @@
 {% comment %}
 Source of insperation: https://github.com/dear-github/dear-github/issues/166
 Call this file with an includes command as shown bellow...
-	{% include spoiler.html summary="SUMMARY" contence="CONTENCE" %}
+	{% include spoiler.html summary="SUMMARY" content="CONTENT" format="md"%}
 {% endcomment %}
 {% assign summary = include.summary | default: summary %}
-{% assign contence = include.contence | default: contence %}
+{% assign content = include.content | default: content %}
 {% assign format = include.format | default: format | default: 'md' %}
-{% if summary %}{% if contence %}
+{% if summary %}{% if content %}
 <details><summary>{{ summary }}</summary><p>
 {% if format == 'md' or 'markdown' %}
-{% capture dashed_contence %}
+{% capture dashed_content %}
 ---
 
-{{ contence }}
+{{ content }}
 
 ---
 {% endcapture %}
-{{ dashed_contence | markdownify }}
+{{ dashed_content | markdownify }}
 {% elsif format == 'bash' or 'shell' %}
-{% capture bash_contence %}
+{% capture bash_content %}
 ---
 
 {% highlight bash %}
-{{ contence }}
+{{ content }}
 {% endhighlight %}
 
 ---
 {% endcapture %}
-{{ bash_contence | markdownify }}
+{{ bash_content | markdownify }}
 {% endif %}
 
 </p></details>

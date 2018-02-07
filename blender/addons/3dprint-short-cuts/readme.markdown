@@ -28,9 +28,10 @@ This add-on allows for turning a selection of object within Blender into either
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/videoseries?list=PLNK2xp3jRnJWgBBLHAg5iP8AUJfZp_jbv" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
 
 
+
 ## Installation
-
-
+{% assign summary = 'Click to show/hide'%}
+{% capture content %}
 0. Download the Python file [3DPrint Short-Cuts]({{ base }}/blender/addons/3dprint-short-cuts/print_shortcuts.py)
 
 0. Within Blender select 'File', then `User Preferences` or use the keyboard
@@ -56,20 +57,21 @@ This add-on allows for turning a selection of object within Blender into either
 
 0. With mouse pointer within the `3D View` area press `T` to open the `Tool Shelf`
 
-0. Scroll allong the tabs within the `Tool Shelf` to find the one labled
+0. Scroll along the tabs within the `Tool Shelf` to find the one labeled
  `3dprint_shortcuts` and select it
 
 0. Customize various settings available, then use the `Quick Slicer Tools`,
  and if configured for a server such as OctoPrint or Repetier the
  `3D Print Server Actions` panels to direct Blender to take the prescribed actions;
  see the next section for more details.
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
 
 
 ## Configuration Options
-
-
+{% assign summary = 'Click to show/hide'%}
+{% capture content %}
 ### Local Slicer Settings
-
 
 Under `Local Slicer Settings` panel, chose a preferred slicer then add a config file
  (`.ini` or `.json` respectively) for the type of printer available. Additional
@@ -115,11 +117,13 @@ Select an output directory and weather or not to keep temporary STL files after
 
 Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
  removed automatically & output directory if defaults are insufficient.
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
 
 
 ## Using addon's features
-
-
+{% assign summary = 'Click to show/hide'%}
+{% capture content %}
 ### Quick Slicer Tools
 
 
@@ -129,7 +133,7 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
  results checkout then click the next button down to export the repaired object
  back into Slic3r for translating into GCode.
 
-- `Prefered Local Slicer` menu allows for choosing if selected objects within Blender
+- `Preferred Local Slicer` menu allows for choosing if selected objects within Blender
  should be sent to either Slic3r or CuraEngine for translating into GCode files, and
  toggles visibility of the following two buttons
 
@@ -165,11 +169,12 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 
 - Currently OctoPrint server users will find more features available for interacting
  with a printer from within Blender, however, this may not be true in the future.
-
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
 
 ## Notes & tips
-
-
+{% assign summary = 'Click to show/hide'%}
+{% capture content %}
 - Saving customization of session settings maybe achieved via `Ctrl U` keyboard
  short-cut or `File > Save Startup File`, however, this is not advisable if
  on a shared device.
@@ -188,9 +193,12 @@ Under `Import OBJ Settings` panel choose weather temporary OBJ files should be
 - Note for OctoPrint users specifically; the `Server Slicer Settings` panel
  maybe used to upload selected objects from Blender as STL files for slicing server
  side, however, sending multiple files for slicing is not supported just yet.
+{% endcapture %}
+{% include spoiler.html summary=summary content=content format="md"%}
 
 
 ## Other Blender addons that maybe of interest to users of this addon
+
 
 > Note the following are only what could be found via web searching for 3rd
 > party Blender addons related to 3D printing & GCode, and have not been tested
