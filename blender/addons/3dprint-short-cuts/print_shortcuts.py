@@ -35,7 +35,7 @@ bl_info = {
     "blender": (2, 75, 0),
     "location": "View3D > Tools > 3DPrint_Short_Cuts",
     "description": "Enables translation to GCode without leaving Blender & uploading to OctoPrint or Repetier server(s)",
-    "warning": "Uses Curl for uploads, and Slic3r or CuraEngine for GCode translations. Untested on Mac & Win. ",
+    "warning": "Untested on Mac & Win. Uses Curl for server interactions, and Slic3r or CuraEngine for GCode translations.",
     "wiki_url": "https://s0ands0.github.io/3D_Printing/blender/addons/3dprint-short-cuts/readme.html",
     "category": "Import-Export",
 }
@@ -139,10 +139,11 @@ class Blender(object):
         self.export_stl_treat_selected_as = context.scene.export_stl_treat_selected_as
 
     # Returns 'stl_path' after running bpy.ops.export_mesh.stl
-    def export_stl(self, stl_path = None, object = None):
+    def export_stl(self, stl_path = None, objects = None):
         """
         # Copy/paste-able block
-
+        BLDR = Blender(context)
+        export_stl_output = BLDR.export_stl(stl_path= None, objects = None)
         # stl_path should be a file path to save object(s) to in STL format
         # object should be either an object or list of objects to export to
         #  file path defined by stl_path
@@ -150,29 +151,29 @@ class Blender(object):
         #  to avoid causing errors with slicers & repair operations on such objects
         """
         if stl_path is None:
-            raise Exception('No "stl_path" defined for Blender.export_stl(stl_path="?", object="?")')
-        if object is None:
-            raise Exception('No "object" defined for Blender.export_stl(stl_path="?", object="?")')
+            raise Exception('No "stl_path" defined for Blender.export_stl(stl_path="?", objects="?")')
+        if objects is None:
+            raise Exception('No "object" defined for Blender.export_stl(stl_path="?", objects="?")')
         # De-select all objects then select target objects
         bpy.ops.object.select_all(action='DESELECT')
-        objects = []
-        if isinstance(object, list):
-            for obj in object:
+        objs = []
+        if isinstance(objects, list):
+            for obj in objects:
                 if obj.type != 'EMPTY':
                     print('## Object name being exported:', obj.name)
                     obj.select = True
-                    objects += [obj]
+                    objs += [obj]
                 else:
                     print('## Skipping selection of object', obj.name, ":", obj.type)
-        elif object:
-            if object.type != 'EMPTY':
-                print('## Object name being exported:', object.name)
-                object.select = True
-                objects += [object]
+        elif objects:
+            if objects.type != 'EMPTY':
+                print('## Object name being exported:', objects.name)
+                objects.select = True
+                objs += [objects]
             else:
-                print('## Scipping selection of object', object.name, ":", object.type)
-        if len(objects) >= 1:
-            print('## Exporting',objects[0].name)
+                print('## Scipping selection of object', objects.name, ":", objects.type)
+        if len(objs) >= 1:
+            print('## Exporting',objs[0].name)
             if self.blender_version_main is 2 and self.blender_version_sub >= 77:
                 export_mesh_stl_output = bpy.ops.export_mesh.stl(
                     filepath = stl_path,
@@ -215,14 +216,13 @@ class Blender(object):
                     ', ascii =', self.export_stl_ascii,
                     ', use_mesh_modifiers=True)')
         # Hide exported object(s) & return stl_path
-        if isinstance(objects, list):
-            for obj in objects:
+        if isinstance(objs, list):
+            for obj in objs:
                 obj.hide = True
         path_exists = Os.path_exists(path = stl_path)
         return path_exists
 
-    # Returns imported object if file path exists
-    #  else raises an exception
+    # Returns imported object if file path exists else raises an exception
     def import_obj(self, path = None):
         """
         # Copy/paste-able block
@@ -325,7 +325,7 @@ class Blender(object):
     def new_plane(name = None, layers = 1):
         """
         # Copy/paste-able block
-        Blender.new_plane(name = None, layers = 1)
+        new_plane_obj = Blender.new_plane(name = None, layers = 1)
         # Returns object after placing on self.preview_layer
         """
         obj = Blender.get_object_by_name(object_name = name)
@@ -421,7 +421,7 @@ class CuraEngine(object):
     """
     # Short-cuts to CuraEngine slice operations
     """
-    def __init__(self, context=bpy.context):
+    def __init__(self, context = bpy.context):
         self.selected_objects = context.selected_objects
         self.curaengine_exec_dir = context.scene.curaengine_exec_dir
         self.curaengine_exec_name = context.scene.curaengine_exec_name
@@ -465,7 +465,7 @@ class Formatted_output(object):
     #  to calling bpy.types.Operator classes.
     # Example of how repair_through_slic3r(context) loaded the 'blender_export_stl_output' value
     #  when 'Individual' or 'Merge' is detected within bpy.context.scene.export_stl_treat_selected_as
-    operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = object)]
+    operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = object)]
     # Example of reporting within: slic3r_repair_button(Operator)
     def execute(self, context):
         if not context.selected_objects:
@@ -554,7 +554,7 @@ class OctoPrint(object):
     """
     Short cuts to OctoPrint methods
     """
-    def __init__(self, contextcontext=bpy.context):
+    def __init__(self, context=bpy.context):
         # Example of inheriting this class's values
         # super(OctoPrint, self).__init__()
         # self.arg = arg
@@ -599,7 +599,7 @@ class OctoPrint(object):
         """
         SP = SubProcess()
         download_file_path = os.path.join(self.octoprint_temp_dir, 'file_list.json')
-        curl_header = self.return_curl_header_lists
+        curl_header = self.return_curl_header_lists()
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
         if target_search_dir and target_search_dir != 'RECURSIVE':
@@ -633,11 +633,11 @@ class OctoPrint(object):
     def return_curl_header_lists(self):
         """
         # Copy/paste-able block
-        curl_header = self.return_curl_header_lists
+        curl_header = self.return_curl_header_lists()
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
         """
-        output = Formatted_output
+        output = Formatted_output()
         curl_ops = ['-f', '-k', '--connect-timeout', '15']
         curl_log = []
         if self.log_level != 'QUITE':
@@ -670,7 +670,9 @@ class OctoPrint(object):
         elif stl_path:
             file_name = bpy.path.basename(stl_path)
         # Build an array of options to send to curl command
-        curl_header = self.return_curl_header_lists
+        curl_header = self.return_curl_header_lists()
+        # print('## curl_header:', curl_header)
+        # print('## self.return_curl_header_lists()', self.return_curl_header_lists())
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
         curl_ops += ['-H', 'Content-Type: multipart/form-data']
@@ -711,7 +713,7 @@ class OctoPrint(object):
         stl_name = bpy.path.basename(stl_path)
         stl_file_name = stl_name.split('.')
         sliced_gcode_name = '{0}.gcode'.format(stl_file_name[0])
-        curl_header = self.return_curl_header_lists
+        curl_header = self.return_curl_header_lists()
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
         curl_ops += ['-X', 'POST', '-H', 'Content-Type: application/json']
@@ -773,7 +775,7 @@ class OctoPrint(object):
             else:
                 check_dir = dir[1]
             try:
-                curl_header = self.return_curl_header_lists
+                curl_header = self.return_curl_header_lists()
                 curl_ops = curl_header.curl_ops
                 curl_log = curl_header.curl_log
                 curl_ops += ['-G']
@@ -789,7 +791,7 @@ class OctoPrint(object):
                 if exsistent_dirs:
                     dir_path = exsistent_dirs
                     new_dir = dir[1]
-                    curl_header = self.return_curl_header_lists
+                    curl_header = self.return_curl_header_lists()
                     curl_ops = curl_header.curl_ops
                     curl_log = curl_header.curl_log
                     curl_ops += ['-H', 'Content-Type: multipart/form-data', '-F', 'foldername={0}'.format(new_dir)]
@@ -802,7 +804,7 @@ class OctoPrint(object):
                 else:
                     dir_path = ''
                     new_dir = dir[1]
-                    curl_header = self.return_curl_header_lists
+                    curl_header = self.return_curl_header_lists()
                     curl_ops = curl_header.curl_ops
                     curl_log = curl_header.curl_log
                     curl_ops += ['-H', 'Content-Type: multipart/form-data', '-F', 'foldername={0}'.format(new_dir)]
@@ -830,10 +832,11 @@ class Os(object):
     @staticmethod
     def path_exists(path=None):
         """
-        #
+        # Copy/paste-able block
+        Os.path_exists(path = None)
         """
         if path is None:
-            raise Exception('No path to check supplied to Os.path_exists(path="?")')
+            raise Exception('No path to check supplied to Os.path_exists(path = "?")')
         path_exists_output = os.path.exists(path)
         if path_exists_output:
             return_output = path
@@ -846,7 +849,8 @@ class Os(object):
     @staticmethod
     def mkdir(path=''):
         """
-        #
+        # Copy/paste-able block
+        Os.mkdir(path = None)
         """
         dir_path = Os.path_exists(path = path)
         if dir_path is False:
@@ -861,7 +865,8 @@ class Os(object):
     @staticmethod
     def rm_file(path=''):
         """
-        #
+        # Copy/paste-able block
+
         """
         if Os.path_exists(path = path):
             # Returns 'None' if pass, else throws an error
@@ -876,7 +881,8 @@ class Os(object):
     @staticmethod
     def rm_dir(path=''):
         """
-        #
+        # Copy/paste-able block
+
         """
         if Os.path_exists(path = path):
             # Returns 'None' if pass, else throws an error
@@ -917,7 +923,7 @@ class Repetier(object):
             self.host_url = context.scene.repetier_host
 
     def return_curl_header_lists(self):
-        output = Formatted_output
+        output = Formatted_output()
         curl_ops = ['-f', '-k', '--connect-timeout', '15']
         curl_log = []
         if self.log_level != 'QUITE':
@@ -941,7 +947,7 @@ class Repetier(object):
     def upload_gcode(gcode_path=''):
         SP = SubProcess()
         file_name = bpy.path.basename(gcode_path)
-        curl_header = self.return_curl_header_lists
+        curl_header = self.return_curl_header_lists()
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
         curl_ops += ['-i', '-X', 'POST', 'Content-Type: multipart/form-data', '-F', '"a=upload"']
@@ -987,7 +993,7 @@ class Selected_objects(object):
             else:
                 self.server_url = context.scene.octoprint_host
 
-    # Returns output of export_stl(stl_path = stl_path, object = object)
+    # Returns output of export_stl(stl_path = stl_path, objects = object)
     def export_as_stl(self, context=bpy.context):
         # Initialize objects for calling class methods
         BLDR = Blender(context)
@@ -998,17 +1004,17 @@ class Selected_objects(object):
         operation_output.mkdir_output = Os.mkdir(path = self.export_stl_directory)
         if 'Individual' in self.export_stl_treat_selected_as or 'Merge' in self.export_stl_treat_selected_as:
             export_stl_output = []
-            for object in self.selected_objects:
-                stl_path = os.path.join(self.export_stl_directory, object.name + '.stl')
+            for obj in self.selected_objects:
+                stl_path = os.path.join(self.export_stl_directory, obj.name + '.stl')
                 # Export objects as STL
-                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = object)]
+                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = obj)]
         else:
             if bpy.data.is_saved is True:
                 stl_path = os.path.join(self.export_stl_directory, bpy.path.basename(bpy.context.blend_data.filepath) + '.stl')
             else:
         	    stl_path = os.path.join(self.export_stl_directory, 'Untitled' + '.stl')
             # Export objects as STL
-            operation_output.blender_export_stl_output = BLDR.export_stl(stl_path = stl_path, object = self.selected_objects)
+            operation_output.blender_export_stl_output = BLDR.export_stl(stl_path = stl_path, objects = self.selected_objects)
         # Return output object of what just happened
         return operation_output
 
@@ -1034,11 +1040,11 @@ class Selected_objects(object):
         # Either export, repair & re-import individual files (per object) or the whole scene as one file
         if 'Individual' in self.export_stl_treat_selected_as or 'Merge' in self.export_stl_treat_selected_as:
             print('## Inidvidual or Merge export settings detected ##')
-            for c, object in enumerate(self.selected_objects):
-                stl_path = os.path.join(self.export_stl_directory, object.name + '.stl')
-                obj_path = os.path.join(self.import_obj_directory, object.name + '_fixed.obj')
+            for c, obj in enumerate(self.selected_objects):
+                stl_path = os.path.join(self.export_stl_directory, obj.name + '.stl')
+                obj_path = os.path.join(self.import_obj_directory, obj.name + '_fixed.obj')
                 # Export
-                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = object)]
+                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = obj)]
                 if operation_output.blender_export_stl_output[c]:
                     # Repair
                     operation_output.slic3r_repair_stl_output += [SLCR.repair_stl(stl_path = operation_output.blender_export_stl_output[c])]
@@ -1062,7 +1068,7 @@ class Selected_objects(object):
         	    stl_path = os.path.join(self.export_stl_directory, 'Untitled.stl')
         	    obj_path = os.path.join(self.import_obj_directory, 'Untitled_fixed.obj')
             # Export
-            operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = self.selected_objects)]
+            operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = self.selected_objects)]
             if operation_output.blender_export_stl_output[0]:
                 # Repair
                 operation_output.slic3r_repair_stl_output += [SLCR.repair_stl(stl_path = operation_output.blender_export_stl_output[0])]
@@ -1105,11 +1111,11 @@ class Selected_objects(object):
         if 'Individual' in self.export_stl_treat_selected_as:
             print('## Individual export settings detected ##')
             stl_file_list = []
-            for c, object in enumerate(self.selected_objects):
-                stl_path = os.path.join(self.export_stl_directory, object.name + '.stl')
-                gcode_path = os.path.join(gcode_dir, object.name + '.gcode')
+            for c, obj in enumerate(self.selected_objects):
+                stl_path = os.path.join(self.export_stl_directory, obj.name + '.stl')
+                gcode_path = os.path.join(gcode_dir, obj.name + '.gcode')
                 # Export
-                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = object)]
+                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = obj)]
                 if operation_output.blender_export_stl_output[c]:
                     # Slice
                     operation_output.slice_stl_output += [SLCR.slice_stl(stl_path = operation_output.blender_export_stl_output[c], gcode_path = gcode_path)]
@@ -1137,10 +1143,10 @@ class Selected_objects(object):
                 gcode_path = os.path.join(gcode_dir, bpy.path.basename(bpy.context.blend_data.filepath) + '.gcode')
             else:
         	    gcode_path = os.path.join(gcode_dir, 'Untitled.gcode')
-            for object in self.selected_objects:
-                stl_path = os.path.join(self.export_stl_directory, object.name + '.stl')
+            for obj in self.selected_objects:
+                stl_path = os.path.join(self.export_stl_directory, obj.name + '.stl')
                 # Export
-                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = object)]
+                operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = obj)]
             if operation_output.blender_export_stl_output:
                 # Slice
                 operation_output.slice_stl_output += [SLCR.slice_stl(stl_path = operation_output.blender_export_stl_output, gcode_path = gcode_path)]
@@ -1158,7 +1164,7 @@ class Selected_objects(object):
                     RP.upload_gcode(gcode_path = gcode_path)
             if self.clean_temp_stl_files is True:
                 # Clean up temp STL & OBJ files if enabled
-                for object in self.selected_objects:
+                for obj in self.selected_objects:
                     operation_output.rm_file_output += [Os.rm_file(path = stl_path)]
             if self.open_browser_after_upload is True:
                 Blender.open_browser(url = self.server_url)
@@ -1171,7 +1177,7 @@ class Selected_objects(object):
         	    stl_path = os.path.join(self.export_stl_directory, 'Untitled.stl')
         	    gcode_path = os.path.join(gcode_dir, 'Untitled.gcode')
             # Export
-            operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, object = self.selected_objects)]
+            operation_output.blender_export_stl_output += [BLDR.export_stl(stl_path = stl_path, objects = self.selected_objects)]
             if operation_output.blender_export_stl_output[0]:
                 # Slice
                 operation_output.slice_stl_output += [SLCR.slice_stl(stl_path = operation_output.blender_export_stl_output[0], gcode_path = gcode_path)]
