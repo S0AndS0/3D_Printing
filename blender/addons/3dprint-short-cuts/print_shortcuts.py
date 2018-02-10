@@ -1663,11 +1663,13 @@ class Webcam(object):
         # Make two sensors for mouse events
         click_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_click_name)
         if click_sensor is None:
+            print('## Making a click sensor:', sensor_click_name)
             bpy.ops.logic.sensor_add(type='MOUSE', name = sensor_click_name, object = object_name)
             click_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_click_name)
         click_sensor.mouse_event = 'LEFTCLICK'
         mouseover_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_mouseover_name)
         if mouseover_sensor is None:
+            print('## Making a mouseover sensor:', sensor_mouseover_name)
             bpy.ops.logic.sensor_add(type='MOUSE', name = sensor_mouseover_name, object = object_name)
             mouseover_sensor = bpy.data.objects[object_name].game.sensors.get(sensor_mouseover_name)
         mouseover_sensor.mouse_event = 'MOUSEOVER'
@@ -1677,6 +1679,7 @@ class Webcam(object):
         # Make an AND controller, TO-DO inject a BGE python script for controlling more than just logic
         controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
         if controller is None:
+            print('## Making a controller:', controller_name)
             bpy.ops.logic.controller_add(type='LOGIC_AND', name = controller_name, object = object_name)
             controller = bpy.data.objects[object_name].game.controllers.get(controller_name)
         ## TO-DO - Inject python script so that buttons can be scaled up & down when mouse hovers & leaves
@@ -1690,6 +1693,7 @@ class Webcam(object):
         # Make an actuator
         actuator = bpy.data.objects[object_name].game.actuators.get(actuator_name)
         if actuator is None:
+            print('## Making a actuator:', actuator_name)
             bpy.ops.logic.actuator_add(type = actuator_type, name = actuator_name, object = object_name)
             actuator = bpy.data.objects[object_name].game.actuators.get(actuator_name)
         actuator.mode = actuator_mode
@@ -1713,7 +1717,6 @@ class Webcam(object):
         #  this will allow users to see their print bed without playing
         #  the Blender Game Renderer
         snapshot_file = self.download_snapshot()
-        print('## snapshot_file', snapshot_file)
         # Pull in the downloaded picture into current Blender file/scene
         img = self.import_local_image(filename = image_file_name, directory = self.temp_dir)
         # Save image X & Y dimensions to variables for use with scaling preview plane
