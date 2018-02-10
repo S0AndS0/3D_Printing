@@ -330,7 +330,7 @@ class Blender(object):
         """
         obj = Blender.get_object_by_name(object_name = name)
         if obj is None:
-            layers = Blender.return_layer_list(layer = self.preview_layer)
+            layers = Blender.return_layer_list(layer = layers)
             bpy.ops.mesh.primitive_plane_add(layers = layers)
             bpy.context.object.name = name
             # The above seems to work but will fail if this addon is called from the command line instead of UI
@@ -1387,10 +1387,8 @@ class Webcam(object):
         # Returns download_file_path unless runnning: SP.curl_check_call(ops = curl_ops, log_ops = curl_log)
         #  errors out.
         """
-        if not download_path or not url:
-            raise Exception('No url or download_path provided')
         SP = SubProcess()
-        download_file_path = os.path.join(self.temp_dir, self.snapshot_name)
+        download_file_path = os.path.join(self.temp_dir, self.snapshot_name + '.jpg')
         curl_ops = ['-k', '--connect-timeout', '15']
         curl_log = []
         if self.log_level != 'QUITE':
@@ -1585,8 +1583,8 @@ class Webcam(object):
         text_obj.color = self.button_text_color
         plane_obj.color = self.button_background_color
         # Assign material to text & background plane for while in textured object mode
-        self.materialize_object(material_name=text_material_name, object_name=text_name, diffuse_color = self.button_text_color, use_shadeless=True)
-        self.materialize_object(material_name=plane_material_name, object_name=plane_name, diffuse_color = self.button_background_color, use_shadeless=True)
+        self.materialize_object(material_name = text_material_name, object = text_obj, diffuse_color = self.button_text_color, use_shadeless = True)
+        self.materialize_object(material_name = plane_material_name, object = plane_obj, diffuse_color = self.button_background_color, use_shadeless = True)
 
     def write_bge_script_webcam(self, controller_script_name='', default_image='', video_path=''):
         """
@@ -1714,7 +1712,8 @@ class Webcam(object):
         # Take a picture of 3D Printer to use as a static texture,
         #  this will allow users to see their print bed without playing
         #  the Blender Game Renderer
-        snapshot_file = self.download_snapshot
+        snapshot_file = self.download_snapshot()
+        print('## snapshot_file', snapshot_file)
         # Pull in the downloaded picture into current Blender file/scene
         img = self.import_local_image(filename = image_file_name, directory = self.temp_dir)
         # Save image X & Y dimensions to variables for use with scaling preview plane
@@ -1745,7 +1744,8 @@ class Webcam(object):
             self.modify_viewport_3dview(animate = False)
         elif action == 'stream':
             # Add exit button in upper left corner of preview plane
-            exit_button_location = (-webcam_obj.dimensions[0]/2, webcam_obj.dimensions[1]/2, webcam_obj.dimensions[2]+1)
+            # exit_button_location = (-webcam_obj.dimensions[0]/2, webcam_obj.dimensions[1]/2, webcam_obj.dimensions[2]+1)
+            exit_button_location = (-preview_plane.dimensions[0]/2, preview_plane.dimensions[1]/2, preview_plane.dimensions[2]+1)
             self.add_text_button(text_name='Exit_Button', text_body='[ESC]', location = exit_button_location)
             # Note we are assuming that naming of background plane will not change from previous function call
             self.setup_bge_logic_button(object_name='Exit_Button_Plane', actuator_type='GAME', actuator_mode='QUIT')
