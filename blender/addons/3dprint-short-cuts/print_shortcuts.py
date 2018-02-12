@@ -534,6 +534,8 @@ class Formatted_output(object):
     @staticmethod
     def return_formated_list(parsabel_output=None, output_header=None):
         """
+        # Copy / paste block
+        output_list = Formatted_output.return_formated_list(parsabel_output = None, output_header = None)
         # This is to cut-down on redundent repitition in return_output method
         """
         if parsabel_output != None and output_header != None:
@@ -546,7 +548,7 @@ class Formatted_output(object):
                 output_list += ['# {0}: {1}'.format(output_header, parsabel_output)]
         else:
             output_list = None
-        print('# Formatted_output.return_formated_list returning: {0}'.format(output_list))
+        # print('# Formatted_output.return_formated_list returning: {0}'.format(output_list))
         return output_list
 
 
@@ -554,7 +556,7 @@ class OctoPrint(object):
     """
     Short cuts to OctoPrint methods
     """
-    def __init__(self, context=bpy.context):
+    def __init__(self, context = bpy.context):
         # Example of inheriting this class's values
         # super(OctoPrint, self).__init__()
         # self.arg = arg
@@ -602,23 +604,24 @@ class OctoPrint(object):
         curl_header = self.return_curl_header_lists()
         curl_ops = curl_header.curl_ops
         curl_log = curl_header.curl_log
-        if target_search_dir and target_search_dir != 'RECURSIVE':
-            curl_ops += ['{0}{1}/{2}?recursive=true'.format(self.host_url, self.octoprint_api_path, target_search_dir), '-o', download_file_path]
-            if log_level != 'QUITE':
+        if self.octoprint_target_search_dir and self.octoprint_target_search_dir != 'RECURSIVE':
+            curl_ops += ['{0}{1}/{2}?recursive=true'.format(self.host_url, self.octoprint_api_path, self.octoprint_target_search_dir), '-o', download_file_path]
+            if self.log_level != 'QUITE':
                 curl_log += ['{0}{1}/{2}?recursive=true'.format(self.host_url, self.octoprint_api_path, target_search_dir), '-o', download_file_path]
         else:
             curl_ops += ['{0}{1}?recursive=true'.format(self.host_url, self.octoprint_api_path), '-o', download_file_path]
-            if log_level != 'QUITE':
+            if self.log_level != 'QUITE':
                 curl_log += ['{0}{1}?recursive=true'.format(self.host_url, self.octoprint_api_path), '-o', download_file_path]
         octoprint_download_json_file_listing_output = SP.curl_check_call(ops = curl_ops, log_ops = curl_log)
-        return octoprint_download_json_file_listing_output
+        # return octoprint_download_json_file_listing_output
+        return download_file_path
 
-    # Returns parsed json from: json.load(json_file)
-    def return_file_listing_parsed_json(self, json_file_path = None):
+    # Returns parsed json to dictionary from: json.load(json_file)
+    @staticmethod
+    def return_file_listing_dict_json(json_file_path = None):
         """
         # Copy/paste-able block
-        OP = OctoPrint(context)
-        parsed_json = OP.return_file_listing_parsed_json(json_file_path)
+        parsed_json = OctoPrint.return_file_listing_dict_json(json_file_path = None)
         """
         if not os.path.exists(json_file_path):
             raise Exception('Could not find json file: {0}'.format(json_file_path))
@@ -629,6 +632,89 @@ class OctoPrint(object):
         with open(json_file_path) as json_file:
             parsed_json = json.load(json_file)
         return parsed_json
+
+    @staticmethod
+    def return_file_list_type(dict_obj = None, return_type = 'folder'):
+        """
+        # Copy / paste block
+        folder_list = OctoPrint.return_file_list_type(dict_obj = None, return_type = 'folder')
+        # 'return_type' maybe 'folder' or 'machinecode' or 'model'
+        # 'dict_obj' should be a list of list / dictionary from
+        # a parsed JSON list without the 'children' type.
+        """
+        if dict_obj is None or return_type is None:
+            raise Exception('# No dictionary provided to parse')
+        items = []
+        for count, item in enumerate(dict_obj):
+            # print('#', count, 'Item:', item)
+            if item['type'] == return_type:
+                items += [item]
+        return items
+
+    @staticmethod
+    def parsed_file_list_printer(
+            dirs='',
+            machinecode_files='',
+            model_files='',
+            octoprint_target_search_dir='',
+            log_level='QUITE'):
+        if log_level != 'QUITE':
+            if model_files or machinecode_files or dirs:
+                # If targeting the root server directory then we have access to the following data
+                if octoprint_target_search_dir is None:
+                    print('## Free space ##', parsed_json['free'])
+                    print('## Used space ##', parsed_json['total'])
+            if model_files:
+                print('# Printing model_files from octoprint_target_search_dir', octoprint_target_search_dir)
+                for item in model_files:
+                    print('## Refs Resource:', item['refs']['resource'])
+                    print('## Refs Download:', item['refs']['download'])
+                    print('## Mount:', item['origin'])
+                    print('## Type:', item['type'])
+                    print('## Size:', item['size'])
+                    print('## Name:', item['name'])
+                    print('## Hash:', item['hash'])
+                    print('## Date:', item['date'])
+                    print('## Display', item['display'])
+                    print('## Path:', item['path'])
+                    print('## Type Path:', item['typePath'])
+            if machinecode_files:
+                print('# Printing machinecode_files from octoprint_target_search_dir', octoprint_target_search_dir)
+                for item in machinecode_files:
+                    print('## Refs Resource:', item['refs']['resource'])
+                    print('## Refs Download:', item['refs']['download'])
+                    print('## Mount:', item['origin'])
+                    print('## Type:', item['type'])
+                    print('## Size:', item['size'])
+                    print('## Name:', item['name'])
+                    print('### GCode Analysis Filament:', item['gcodeAnalysis']['filament'])
+                    for count, tool in enumerate(item['gcodeAnalysis']['filament']):
+                        print('#### Tool #{0}'.format(count))
+                        print('#### Length:', item['gcodeAnalysis']['filament'][tool]['length'])
+                        print('#### Volume:', item['gcodeAnalysis']['filament'][tool]['volume'])
+                    print('#### Dimensions Depth:', item['gcodeAnalysis']['dimensions']['depth'])
+                    print('#### Dimensions Height:', item['gcodeAnalysis']['dimensions']['height'])
+                    print('#### Dimensions Width:', item['gcodeAnalysis']['dimensions']['width'])
+                    print('#### Printing Area Max Y:', item['gcodeAnalysis']['printingArea']['maxY'])
+                    print('#### Printing Area Min Y:', item['gcodeAnalysis']['printingArea']['minY'])
+                    print('#### Printing Area Max X:', item['gcodeAnalysis']['printingArea']['maxX'])
+                    print('#### Printing Area Min X:', item['gcodeAnalysis']['printingArea']['minX'])
+                    print('#### Printing Area Max Z:', item['gcodeAnalysis']['printingArea']['maxZ'])
+                    print('#### Printing Area Min Z:', item['gcodeAnalysis']['printingArea']['minZ'])
+                    print('#### Estimated Print Time:', item['gcodeAnalysis']['estimatedPrintTime'])
+                    print('## Display', item['display'])
+                    print('## Path:', item['path'])
+                    print('## Type Path:', item['typePath'])
+            if dirs:
+                print('# Printing dirs from octoprint_target_search_dir', octoprint_target_search_dir)
+                for item in dirs:
+                    print('## Refs Resource:', item['refs']['resource'])
+                    print('## Mount:', item['origin'])
+                    print('## Type:', item['type'])
+                    print('## Name:', item['name'])
+                    print('## Display', item['display'])
+                    print('## Path:', item['path'])
+                    print('## Type Path:', item['typePath'])
 
     def return_curl_header_lists(self):
         """
@@ -1810,8 +1896,43 @@ class octoprint_download_file_list_button(Operator):
 
     def execute(self, context):
         Scene = context.scene
+        OP = OctoPrint(context)
+        downloaded_json = OP.download_json_file_listing(target_search_dir = None)
+        parsed_json = OctoPrint.return_file_listing_dict_json(json_file_path = downloaded_json)
+        if Scene.octoprint_target_search_dir:
+            folder_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['children'], return_type = 'folder')
+            machinecode_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['children'], return_type = 'machinecode')
+            model_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['children'], return_type = 'model')
+        else:
+            folder_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['files'], return_type = 'folder')
+            machinecode_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['files'], return_type = 'machinecode')
+            model_list = OctoPrint.return_file_list_type(dict_obj = parsed_json['files'], return_type = 'model')
 
-        info = ('Finished')
+        OctoPrint.parsed_file_list_printer(
+            dirs=folder_list,
+            machinecode_files=machinecode_list,
+            model_files=model_list,
+            octoprint_target_search_dir=Scene.octoprint_target_search_dir,
+            log_level=Scene.log_level)
+
+        folders = Formatted_output.return_formated_list(parsabel_output = folder_list, output_header = 'Folder')
+        machinecodes = Formatted_output.return_formated_list(parsabel_output = machinecode_list, output_header = 'Machinecode File')
+        models = Formatted_output.return_formated_list(parsabel_output = model_list, output_header = 'Model File')
+        items_count = 0
+        for c, l in enumerate(folders):
+            items_count += 1
+            info = str(('#', c, l))
+            self.report({'INFO'}, info)
+        for c, f in enumerate(machinecodes):
+            items_count += 1
+            info = str(('#', c, f))
+            self.report({'INFO'}, info)
+        for c, f in enumerate(models):
+            items_count += 1
+            info = str(('#', c, f))
+            self.report({'INFO'}, info)
+
+        info = str(('Finished with', items_count, 'number of items'))
         self.report({'INFO'}, info)
         return {'FINISHED'}
 
